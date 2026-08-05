@@ -1,0 +1,13 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "packages": {
+    ".": {
+      "release-type": "python",
+      "package-name": "loomground-norm",
+      "include-component-in-tag": true,
+      "component": "norm",
+      "changelog-path": "CHANGELOG.md",
+      "extra-files": ["src/loomground_norm/_version.py"]
+    }
+  }
+}

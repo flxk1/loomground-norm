@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: Apache-2.0
+# Concrete dev/CI resolution of the abstract ranges in pyproject.toml. Kept out
+# of package metadata so the built distribution stays index-clean. Immutable git
+# revisions only — never a floating branch — so a build can be reproduced.
+#
+# Dependency order (see RELEASING.md): norm sits between the deontic language /
+# the solver and the domains that consume it. It can only resolve + go green
+# once its upstreams are published at the tags below. For LOCAL development
+# with the sibling checkouts present, conftest.py adds their src/ dirs to the
+# path, so `pytest` runs with no pins installed.
+#
+# Pin once verified (fill the immutable revision when each pin is confirmed
+# against the current tree):
+#   loomground-solver  -- last known tag solver-v0.1.1; re-pin at the current release when this repo publishes
+#   loomground-deontic -- last known tag v0.1.0; re-pin at the current release when this repo publishes
+# loomground-solver @ git+https://github.com/flxk1/loomground-solver@<solver tag sha>
+# loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@<deontic tag sha>
+#
+pytest>=7.0

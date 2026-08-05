@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright 2026 flxk1
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loomground-norm"
+dynamic = ["version"]
+description = "The general normative-reasoning plane: rule extraction, obligation tracking, multi-hop subsumption over loomground-deontic's formula. No governance, no legal domain — both consume this plane, neither is it."
+readme = "README.md"
+requires-python = ">=3.10"
+license = "Apache-2.0"
+license-files = ["LICENSES/Apache-2.0.txt", "NOTICE"]
+authors = [{ name = "Loomground Contributors" }]
+# Abstract dependencies only — a name and range, no URL — so the built
+# distribution stays index-publishable, matching loomground-solver's own
+# dependency on loomground-governance. requirements-dev.txt pins the
+# concrete git tags (solver-v0.1.1, deontic v0.1.0) for development and CI.
+# loomground-deontic is the deontic language (three operators O/P/F, the
+# Hohfeld incidents, the formula carrier); this plane is the reasoning atop
+# it and carries no parallel copy of that language.
+dependencies = [
+    "loomground-solver>=0.1,<0.2",
+    "loomground-deontic>=0.1,<0.2",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.urls]
+Repository = "https://github.com/flxk1/loomground-norm"
+Issues = "https://github.com/flxk1/loomground-norm/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["loomground_norm*"]
+
+[tool.setuptools.dynamic]
+version = { attr = "loomground_norm._version.__version__" }
+
+[tool.setuptools.package-data]
+loomground_norm = ["py.typed"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
