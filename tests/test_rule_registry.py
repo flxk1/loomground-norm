@@ -1,22 +1,20 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 flxk1
-"""RuleRegistry — the ported placement behavior, exercised against fake ports.
+"""RuleRegistry — the span-placement core, exercised against fake ports.
 
-Covers what was migrated from rvnd's
-``server/src/workspaces/rule_registry.py`` behind the anchor_resolver /
-urn_minter / audit_sink / user_root ports:
+Covers the placement behavior behind the urn_minter / audit_sink ports, with
+NO legal-domain surface (no anchoring, no place_legal_text) and NO host
+per-user mirror:
 
-  * span placement with anchoring + URN minting delegated to injected ports,
+  * span placement with URN minting delegated to an injected port,
     idempotent on (document, pinpoint, text), audited through the sink;
-  * honest abstention: no anchor_resolver -> empty anchors, no urn_minter ->
-    empty canonical_urn;
-  * per-user cross-folder mirror (only when user_root is injected);
-  * document re-anchoring: surviving spans migrate, vanished spans orphan
+  * honest abstention: no urn_minter -> empty canonical_urn;
+  * a neutral, configurable store path (no "legal" in it);
+  * a neutral audit-event shape (norm-plane terms, no RVND vocab);
+  * document re-pinning: surviving spans migrate, vanished spans orphan
     (escalate), never silently dropped;
-  * reverse index (rules_at) and search (modal / relation);
-  * place_legal_text driven by injected provision-splitter + host-anchor ports,
-    abstaining loudly when the splitter is absent;
-  * place_into_registry routing (law vs document) and its never-raises contract.
+  * search by modal;
+  * place_into_registry and its never-raises contract.
 """
 
 from __future__ import annotations
@@ -27,16 +25,10 @@ pytest.importorskip("loomground_solver")
 pytest.importorskip("deontic")
 
 import loomground_norm as norm
-from loomground_norm.rule_registry import RuleRegistry, Anchor, place_into_registry
+from loomground_norm.rule_registry import RuleRegistry, place_into_registry
 
 
 # ── fakes satisfying the declared ports ─────────────────────────────────────────
-
-def _anchor_resolver(facet):
-    """Fake legal-domain anchoring: place every span on the GDPR (DE)."""
-    return [Anchor("GDPR", "instrument", "cites", "test"),
-            Anchor("DE", "jurisdiction", "governed_by", "owning order")]
-
 
 def _urn_minter(content: str) -> str:
     return "urn:test:" + content
@@ -58,15 +50,13 @@ def _facet(text, *, modal="obligation", subject="controller", action="notify"):
 
 # ── span placement ──────────────────────────────────────────────────────────────
 
-def test_place_span_uses_anchor_and_urn_ports_and_audits(tmp_path):
+def test_place_span_uses_urn_port_and_audits(tmp_path):
     sink = _RecordingSink()
-    reg = RuleRegistry(tmp_path, anchor_resolver=_anchor_resolver,
-                       urn_minter=_urn_minter, audit_sink=sink)
+    reg = RuleRegistry(tmp_path, urn_minter=_urn_minter, audit_sink=sink)
     r = reg.place_span("The controller shall notify the authority.",
                        source_document="doc1",
                        facet=_facet("The controller shall notify the authority."))
     assert r["status"] == "created"
-    assert [a["entity"] for a in r["anchors"]] == ["GDPR", "DE"]
     assert r["canonical_urn"].startswith("urn:test:rule-")   # _urn_seed used
     assert sink.events and sink.events[0]["extra"]["kind"] == "rule-item"
 
@@ -78,13 +68,13 @@ def test_place_span_uses_anchor_and_urn_ports_and_audits(tmp_path):
     assert again["id"] == r["id"]
 
 
-def test_place_span_abstains_without_ports(tmp_path):
-    reg = RuleRegistry(tmp_path)              # no anchor_resolver, no urn_minter
+def test_place_span_abstains_without_urn_minter(tmp_path):
+    reg = RuleRegistry(tmp_path)              # no urn_minter
     r = reg.place_span("The controller shall notify the authority.",
                        source_document="doc1",
                        facet=_facet("The controller shall notify the authority."))
-    assert r["anchors"] == []                 # visible: no anchoring performed
     assert r["canonical_urn"] == ""           # visible: no URN invented
+    assert "anchors" not in r                  # legal-anchor surface gone
 
 
 def test_place_persists_across_a_fresh_registry(tmp_path):
@@ -99,7 +89,7 @@ def test_place_persists_across_a_fresh_registry(tmp_path):
 
 
 def test_place_document_places_each_operative_span(tmp_path):
-    reg = RuleRegistry(tmp_path, anchor_resolver=_anchor_resolver)
+    reg = RuleRegistry(tmp_path)
     content = ("The controller shall notify the authority. "
                "The processor must not disclose the data.")
     out = reg.place_document(content, source_document="doc-multi")
@@ -109,7 +99,37 @@ def test_place_document_places_each_operative_span(tmp_path):
     assert {"obligation", "prohibition"} <= modals
 
 
-# ── re-anchoring + orphans ──────────────────────────────────────────────────────
+# ── neutral store path + audit shape ─────────────────────────────────────────────
+
+def test_store_path_is_neutral_and_configurable(tmp_path):
+    reg = RuleRegistry(tmp_path)
+    reg.place_span("The controller shall notify the authority.",
+                   source_document="d", facet=_facet("x"))
+    written = list(tmp_path.rglob("rule-items.jsonl"))
+    assert written                                  # default neutral subdir used
+    assert not any("legal" in str(p) for p in written)   # no legal-corpus path
+
+    reg2 = RuleRegistry(tmp_path / "w2", subdir="norm-store")
+    reg2.place_span("The processor shall encrypt the data.",
+                    source_document="d",
+                    facet=_facet("y", subject="processor", action="encrypt"))
+    assert (tmp_path / "w2" / "norm-store" / "rule-items.jsonl").exists()
+
+
+def test_audit_event_is_neutral(tmp_path):
+    sink = _RecordingSink()
+    reg = RuleRegistry(tmp_path, audit_sink=sink)
+    reg.place_span("The controller shall notify the authority.",
+                   source_document="d", facet=_facet("x"))
+    ev = sink.events[0]
+    assert "pair_id" not in ev and "channel" not in ev   # RVND vocab gone
+    assert "anchors" not in ev.get("extra", {})          # legal surface gone
+    assert ev["rule_id"].startswith("rule:")             # neutral norm-plane terms
+    assert ev["event"] == "place-span"
+    assert ev["extra"]["kind"] == "rule-item"
+
+
+# ── re-pinning + orphans ─────────────────────────────────────────────────────────
 
 def test_reanchor_document_migrates_and_orphans(tmp_path):
     reg = RuleRegistry(tmp_path)
@@ -134,111 +154,39 @@ def test_reanchor_document_migrates_and_orphans(tmp_path):
 
 # ── queries ─────────────────────────────────────────────────────────────────────
 
-def test_rules_at_and_search(tmp_path):
-    reg = RuleRegistry(tmp_path, anchor_resolver=_anchor_resolver)
+def test_search_by_modal(tmp_path):
+    reg = RuleRegistry(tmp_path)
     reg.place_span("The controller shall notify the authority.",
                    source_document="d", facet=_facet("a"))
     reg.place_span("The processor must not disclose the data.",
                    source_document="d", pinpoint="cl.2",
                    facet=_facet("b", modal="prohibition"))
 
-    assert len(reg.rules_at("GDPR")) == 2               # reverse index by anchor
-    assert len(reg.rules_at("DE")) == 2
+    assert len(reg.workspace_items()) == 2
     assert len(reg.search(modal="prohibition")) == 1
-    assert len(reg.search(relation="governed_by")) == 2
-    assert reg.search(relation="enforced_by") == []     # no such anchor placed
+    assert len(reg.search(modal="obligation")) == 1
+    assert reg.search(modal="permission") == []
 
 
-# ── per-user mirror ─────────────────────────────────────────────────────────────
+# ── place_into_registry + never-raises ───────────────────────────────────────────
 
-def test_user_mirror_aggregates_across_folders(tmp_path):
-    user_root = tmp_path / "user-log"
-    ws_a, ws_b = tmp_path / "a", tmp_path / "b"
-    reg_a = RuleRegistry(ws_a, user="felix", user_root=user_root)
-    reg_b = RuleRegistry(ws_b, user="felix", user_root=user_root)
-    reg_a.place_span("The controller shall notify the authority.",
-                     source_document="da", facet=_facet("a"))
-    reg_b.place_span("The processor shall encrypt the data.",
-                     source_document="db",
-                     facet=_facet("b", subject="processor", action="encrypt"))
-
-    # a fresh registry sees both workspaces' rules in the per-user store.
-    all_mine = RuleRegistry(ws_a, user="felix", user_root=user_root).user_items()
-    workspaces = {r["workspace"] for r in all_mine}
-    assert len(all_mine) == 2
-    assert workspaces == {str(ws_a), str(ws_b)}
-    assert RuleRegistry(ws_a, user="felix", user_root=user_root).user_items(
-        user="nobody") == []
-
-
-def test_user_mirror_disabled_without_user_root(tmp_path):
-    reg = RuleRegistry(tmp_path, user="felix")          # no user_root injected
-    reg.place_span("The controller shall notify the authority.",
-                   source_document="d", facet=_facet("a"))
-    assert reg.user_items() == []                       # visible: no home-dir mirror
-
-
-# ── legal-text placement (injected splitter + host anchoring) ────────────────────
-
-def _splitter(content):
-    return [{"text": "The provider shall register the system with the authority.",
-             "pinpoint": "Art. 1"},
-            {"text": "The operator must not delete the logs.",
-             "pinpoint": "Art. 2"}]
-
-
-def _host_anchors(code, pinpoint):
-    return [Anchor(code, "instrument", "cites", pinpoint),
-            Anchor("EU", "jurisdiction", "governed_by", "owning order")]
-
-
-def test_place_legal_text_uses_injected_ports(tmp_path):
-    reg = RuleRegistry(tmp_path, provision_splitter=_splitter,
-                       host_anchor_resolver=_host_anchors)
-    out = reg.place_legal_text("<the law's full text>", "AIACT",
-                               source_document="ai-act")
-    assert out["instrument"] == "AIACT"
-    assert out["count"] >= 2
-    assert out["provisions"] == 2
-    # each placed span is anchored to its host instrument with the pinpoint basis.
-    at_host = reg.rules_at("AIACT")
-    assert at_host
-    bases = {a["basis"] for r in at_host for a in r["anchors"]
-             if a["entity"] == "AIACT"}
-    assert {"Art. 1", "Art. 2"} <= bases
-
-
-def test_place_legal_text_abstains_without_a_splitter(tmp_path):
-    reg = RuleRegistry(tmp_path)
-    with pytest.raises(NotImplementedError):
-        reg.place_legal_text("<the law's full text>", "AIACT")
-
-
-# ── place_into_registry routing + never-raises ──────────────────────────────────
-
-def test_place_into_registry_routes_to_legal_text(tmp_path):
-    out = place_into_registry(
-        tmp_path, "<the law's full text>", source_document="ai-act",
-        provision_splitter=_splitter, host_anchor_resolver=_host_anchors,
-        host_detector=lambda c: "AIACT")
-    assert out["instrument"] == "AIACT"
-    assert out["count"] >= 2
-
-
-def test_place_into_registry_routes_to_document(tmp_path):
+def test_place_into_registry_places_a_document(tmp_path):
     out = place_into_registry(
         tmp_path,
         "The controller shall notify the authority.",
-        source_document="doc", anchor_resolver=_anchor_resolver)
-    assert "instrument" not in out
+        source_document="doc")
+    assert "instrument" not in out          # no legal-text routing anymore
     assert out["count"] >= 1
 
 
-def test_place_into_registry_never_raises(tmp_path):
+def test_place_into_registry_never_raises(tmp_path, monkeypatch):
+    import loomground_norm.rule_registry as rr
+
     def _boom(content):
-        raise RuntimeError("splitter blew up")
-    out = place_into_registry(
-        tmp_path, "text", provision_splitter=_boom,
-        host_detector=lambda c: "AIACT")
+        raise RuntimeError("extract blew up")
+
+    monkeypatch.setattr(rr, "extract_rules", _boom)
+    out = place_into_registry(tmp_path, "The controller shall notify.",
+                              source_document="d")
     assert out["placed"] == []
     assert "error" in out and "RuntimeError" in out["error"]

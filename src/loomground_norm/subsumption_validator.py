@@ -2,25 +2,25 @@
 # Copyright 2026 flxk1
 """Validate a multi-hop / subsumption output against norm theory — two layers.
 
-A built subsumption chain (``workspaces.subsumption_path.Subsumption``) is only as
-good as its conformance to legal reasoning rules. Those rules come in two layers:
+A built subsumption chain (``subsumption_path.Subsumption``) is only as good as
+its conformance to the reasoning invariants. Those invariants come in two
+layers:
 
-  * UNIVERSAL norm theory — true in every legal system: every step is sourced
+  * UNIVERSAL norm theory — true in every rule-system: every step is sourced
     (provenance); a result must be reached *through* a subsumption (you cannot
     conclude without subsuming); every step carries an authority weight; a
     retrieval or conflict gap voids the chain.
-  * REGIONAL norm theory — an injected :class:`~loomground_norm.ports.LegalSystemPack`:
-    citations must take a form the family recognises (§/CELEX for DE/EU;
-    s./UKSC for UK; U.S.C. for US); a collision may only be resolved by a
-    principle the family recognises, and otherwise must escalate (never
-    auto-resolved); authority follows the family's hierarchy.
+  * REGIONAL norm theory — an injected, domain-neutral
+    :class:`~loomground_norm.ports.RegionalPack`: a collision may only be
+    resolved by a principle the rule-system recognises, and otherwise must
+    escalate (never auto-resolved). The principle tokens are opaque; this
+    plane does not interpret them.
 
 The validator REUSES the substrate: universal checks mirror the norm-theory
-contract's invariants; regional checks read the injected legal-system pack —
-which jurisdiction family applies is a legal-domain decision, so this plane
-carries no pack of its own and runs universal-only when none is supplied.
-It returns a layered report; it never repairs the chain or resolves a
-conflict — it judges.
+contract's invariants; the regional check reads the injected pack — which
+rule-system applies is a consumer's decision, so this plane carries no pack of
+its own and runs universal-only when none is supplied. It returns a layered
+report; it never repairs the chain or resolves a conflict — it judges.
 """
 
 from __future__ import annotations
@@ -29,7 +29,7 @@ from dataclasses import dataclass, field
 from typing import Any, Optional
 
 from loomground_solver.norm_contract import Level  # reuse PASS / VIOLATION / ESCALATE
-from .ports import LegalSystemPack
+from .ports import RegionalPack
 from .subsumption_path import Subsumption
 
 
@@ -47,7 +47,7 @@ class Finding:
 
 @dataclass
 class ValidationReport:
-    legal_system: str
+    region: str
     findings: list[Finding] = field(default_factory=list)
 
     @property
@@ -63,23 +63,17 @@ class ValidationReport:
         return not self.violations
 
     def to_dict(self) -> dict[str, Any]:
-        return {"legal_system": self.legal_system, "ok": self.ok,
+        return {"region": self.region, "ok": self.ok,
                 "must_escalate": bool(self.escalations),
                 "findings": [f.to_dict() for f in self.findings]}
 
 
-def _citation_ok(source: str, markers: tuple[str, ...]) -> bool:
-    s = (source or "")
-    return any(m.lower() in s.lower() for m in markers)
-
-
-def validate(sub: Subsumption, *, pack: Optional[LegalSystemPack] = None) -> ValidationReport:
-    """Validate a subsumption chain. ``pack`` is the active jurisdiction
-    family (RVND's ``legal_systems.get(code)`` satisfies
-    :class:`~loomground_norm.ports.LegalSystemPack`); omitted, only the
-    universal layer runs and the report's ``legal_system`` reads
-    ``"(universal-only)"``."""
-    rep = ValidationReport(legal_system=pack.code if pack else "(universal-only)")
+def validate(sub: Subsumption, *, pack: Optional[RegionalPack] = None) -> ValidationReport:
+    """Validate a subsumption chain. ``pack`` is the active, domain-neutral
+    :class:`~loomground_norm.ports.RegionalPack` (a consumer chooses which
+    rule-system it stands for); omitted, only the universal layer runs and the
+    report's ``region`` reads ``"(universal-only)"``."""
+    rep = ValidationReport(region=pack.region if pack else "(universal-only)")
 
     # ── UNIVERSAL (jurisdiction-agnostic norm theory) ───────────────────────
     for step in sub.steps:
@@ -107,23 +101,19 @@ def validate(sub: Subsumption, *, pack: Optional[LegalSystemPack] = None) -> Val
         rep.findings.append(Finding("universal", "U0", Level.PASS,
                                     "universal norm theory satisfied"))
 
-    # ── REGIONAL (the injected legal-system pack, if any) ───────────────────
+    # ── REGIONAL (the injected, domain-neutral pack, if any) ─────────────────
     if pack is None:
         rep.findings.append(Finding("regional", "R-none", Level.PASS,
-                                    "no legal-system pack injected — regional layer skipped"))
+                                    "no regional pack injected — regional layer skipped"))
         return rep
 
-    for step in sub.steps:
-        if step.source and not _citation_ok(step.source, pack.citation_markers):
-            rep.findings.append(Finding("regional", "R1-citation-form", Level.VIOLATION,
-                                        f"step '{step.role}' cites {step.source!r}, not a "
-                                        f"{pack.code} form ({', '.join(pack.citation_markers)})"))
-    # conflicts must be resolvable only by a principle the family recognises.
+    # a collision may be resolved only by a principle the rule-system
+    # recognises — otherwise it must escalate, never auto-resolve.
     if any(g.kind == "conflict" for g in sub.gaps):
-        rep.findings.append(Finding("regional", "R2-conflict-principle", Level.ESCALATE,
-                                    f"resolve under {pack.code} principles "
-                                    f"({', '.join(pack.conflict_principles)}) — human, not auto"))
+        rep.findings.append(Finding("regional", "R1-collision-principle", Level.ESCALATE,
+                                    f"resolve under {pack.region} principles "
+                                    f"({', '.join(pack.collision_principles)}) — human, not auto"))
     if not any(f.layer == "regional" for f in rep.findings):
         rep.findings.append(Finding("regional", "R0", Level.PASS,
-                                    f"regional ({pack.code}) norm theory satisfied"))
+                                    f"regional ({pack.region}) norm theory satisfied"))
     return rep

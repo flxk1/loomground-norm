@@ -151,7 +151,7 @@ def test_subsumption_chain_surfaces_a_retrieval_gap():
     assert any(g.kind == "retrieval" for g in chain.gaps)
 
     report = norm.validate_subsumption(chain)
-    assert report.legal_system == "(universal-only)"
+    assert report.region == "(universal-only)"
     assert not report.ok
     codes = {f.code for f in report.violations}
     assert "U2-retrieval-gap" in codes

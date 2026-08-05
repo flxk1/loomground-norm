@@ -33,12 +33,13 @@ Public surface, by module:
     (Norm -> Tatbestand -> Ausnahme -> Auslegung -> Subsumtion -> Ergebnis)
     with its gaps surfaced, never smoothed.
   * :mod:`.subsumption_validator` — validates a chain against universal norm
-    theory, plus an optional injected regional
-    :class:`~loomground_norm.ports.LegalSystemPack`.
-  * :mod:`.rule_registry` — typed, persisted span-norm storage (staging
-    skeleton: see the module for what is ported and what is not yet).
-  * :mod:`.obligation_scheduler` — the deterministic obligation ``tick``
-    (staging skeleton: see the module for what is ported and what is not yet).
+    theory, plus an optional injected, domain-neutral regional
+    :class:`~loomground_norm.ports.RegionalPack`.
+  * :mod:`.rule_registry` — typed, persisted span-norm storage (span
+    placement, document re-pinning, orphan tracking) behind urn_minter /
+    audit_sink ports.
+  * :mod:`.obligation_scheduler` — the deterministic obligation ``tick``,
+    emitting ungated follow-up proposals behind the InstrumentSource port.
   * :mod:`.ports` — the injected seams a host wires in.
 
 The operators, incidents, formula carrier, and conflict detector below are
@@ -90,24 +91,22 @@ from .subsumption_path import Step, Gap, Subsumption, build as build_subsumption
 # subsumption_validator — universal + optional regional norm theory
 from .subsumption_validator import Finding as SubsumptionFinding, ValidationReport, validate as validate_subsumption
 
-# rule_registry — typed span-norm storage + placement (ported behind the
-# anchor_resolver / urn_minter / audit_sink ports)
+# rule_registry — typed span-norm storage + placement (behind the
+# urn_minter / audit_sink ports)
 from .rule_registry import (
-    Anchor, SpanNorm, RuleRegistry,
-    AnchorResolver, UrnMinter, ProvisionSplitter, HostAnchorResolver,
-    place_into_registry,
+    SpanNorm, RuleRegistry, UrnMinter, place_into_registry,
 )
 
-# obligation_scheduler — the deterministic tick (ported behind the
-# ActionGate / InstrumentSource ports)
+# obligation_scheduler — the deterministic tick (behind the
+# InstrumentSource port), emitting ungated follow-up proposals
 from .obligation_scheduler import (
     target_state, FollowUp, SchedulerReport,
-    ObligationScheduler, ActionGate, InstrumentSource,
+    ObligationScheduler, InstrumentSource,
 )
 
 # ports — the injected seams
 from .ports import (
-    SourceInstrument, AuditSink, NullAuditSink, LegalSystemPack,
+    SourceInstrument, AuditSink, NullAuditSink, RegionalPack,
 )
 
 __all__ = [
@@ -133,12 +132,10 @@ __all__ = [
     # subsumption_validator
     "SubsumptionFinding", "ValidationReport", "validate_subsumption",
     # rule_registry
-    "Anchor", "SpanNorm", "RuleRegistry",
-    "AnchorResolver", "UrnMinter", "ProvisionSplitter", "HostAnchorResolver",
-    "place_into_registry",
+    "SpanNorm", "RuleRegistry", "UrnMinter", "place_into_registry",
     # obligation_scheduler
     "target_state", "FollowUp", "SchedulerReport",
-    "ObligationScheduler", "ActionGate", "InstrumentSource",
+    "ObligationScheduler", "InstrumentSource",
     # ports
-    "SourceInstrument", "AuditSink", "NullAuditSink", "LegalSystemPack",
+    "SourceInstrument", "AuditSink", "NullAuditSink", "RegionalPack",
 ]

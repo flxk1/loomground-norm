@@ -1,10 +1,9 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 flxk1
-"""ObligationScheduler.tick — the ported sweep, exercised against fake ports.
+"""ObligationScheduler.tick — the sweep, exercised against fake ports.
 
-Covers the behavior migrated from rvnd's
-``server/src/workspaces/obligation_scheduler.py`` behind the ActionGate /
-InstrumentSource ports:
+Covers the behavior behind the InstrumentSource port, with NO governance gate
+(the scheduler proposes ungated; a consumer classifies verdict/footprint):
 
   * calendar-driven state advancement (pending -> due_soon -> due ->
     breached_candidate) by date arithmetic only;
@@ -12,8 +11,8 @@ InstrumentSource ports:
   * the weekend caveat when no shift rule is configured;
   * a configured ``deadline_shift`` deferring the effective deadline;
   * an unresolvable relative deadline surfaced, never guessed;
-  * proposals routed through an injected ActionGate (and recorded ungated
-    without one), with the obligor named as affected party on outward reminders.
+  * ungated follow-up proposals (no footprint, no verdict, no decision), with
+    the obligor named as affected party on outward reminders.
 """
 
 from __future__ import annotations
@@ -53,18 +52,6 @@ class _FakeInstrumentSource:
     def get(self, ref: str):
         cid = ref.partition("@")[0]
         return self._by_ref.get(ref) or self._by_ref.get(cid)
-
-
-class _RecordingGate:
-    """ActionGate that records every follow-up and returns a fixed verdict."""
-
-    def __init__(self, verdict: str = "conditional") -> None:
-        self.verdict = verdict
-        self.seen: list = []
-
-    def __call__(self, follow_up) -> dict:
-        self.seen.append(follow_up)
-        return {"verdict": self.verdict, "action_class": follow_up.action_class}
 
 
 # ── helpers ─────────────────────────────────────────────────────────────────────
@@ -174,27 +161,28 @@ def test_instrument_source_resolves_relative_deadline(tmp_path):
     assert report.transitions[0]["deadline"] == "2026-01-31"
 
 
-def test_action_gate_invoked_with_affected_party(tmp_path):
+def test_outward_reminder_proposal_names_affected_party(tmp_path):
     reg = _reg(tmp_path)
     _seed(reg, "o-soon", deadline_date="2026-01-10", obligor="processor")
-    gate = _RecordingGate(verdict="conditional")
 
-    report = ObligationScheduler(reg, action_gate=gate).tick(as_of=Date("2026-01-05"))
-    assert len(gate.seen) == 1
-    fu = gate.seen[0]
-    assert fu.action_class == "remind-obligor"
-    assert fu.affected_parties == ("processor",)     # outward reminder names obligor
+    report = ObligationScheduler(reg).tick(as_of=Date("2026-01-05"))
     prop = report.proposals[0]
-    assert prop["decision"]["verdict"] == "conditional"
-    assert prop["follow_up"]["obligation_id"] == "o-soon"
+    assert prop["action_class"] == "remind-obligor"
+    assert prop["affected_parties"] == ("processor",)   # outward reminder names obligor
+    assert prop["obligation_id"] == "o-soon"
+    assert prop["target_state"] == "due_soon"
+    # ungated: the plane proposes, it does not gate.
+    assert "footprint" not in prop                       # governance vocab gone
+    assert "verdict" not in prop and "decision" not in prop
 
 
-def test_proposals_recorded_ungated_without_a_gate(tmp_path):
+def test_breach_candidate_proposal_is_internal_and_ungated(tmp_path):
     reg = _reg(tmp_path)
     _seed(reg, "o-past", deadline_date="2025-12-20")
     report = ObligationScheduler(reg).tick(as_of=Date("2026-01-05"))
 
     prop = report.proposals[0]
-    assert prop["decision"] is None                  # ungated, visible, not applied
-    assert prop["follow_up"]["action_class"] == "surface-breach-candidate"
-    assert prop["follow_up"]["affected_parties"] == ()   # internal, no addressee
+    assert prop["action_class"] == "surface-breach-candidate"
+    assert prop["affected_parties"] == ()               # internal, no addressee
+    assert "footprint" not in prop
+    assert "decision" not in prop

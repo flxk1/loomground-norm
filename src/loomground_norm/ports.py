@@ -40,19 +40,19 @@ class SourceInstrument(Protocol):
 
 
 @runtime_checkable
-class LegalSystemPack(Protocol):
-    """One jurisdiction family's regional norm-theory rules.
+class RegionalPack(Protocol):
+    """One rule-system's regional collision-resolution rules.
 
-    RVND's ``legal_systems.get(code)`` returns an object satisfying this
-    shape; the norm plane defines the universal layer of subsumption
-    validation and treats the regional layer (citation forms, collision
-    principles) as optional and injected — jurisdiction-family selection
-    is a legal-domain decision, not this plane's.
+    Domain-neutral: the norm plane defines the universal layer of subsumption
+    validation and treats the regional layer (which collision principles a
+    rule-system recognises) as optional and injected. The principles are
+    opaque tokens — this plane does not interpret them and carries no
+    rule-system of its own; selecting which one applies is a consumer's
+    decision. ``region`` is a free-form label the consumer chooses.
     """
 
-    code: str
-    citation_markers: tuple[str, ...]
-    conflict_principles: tuple[str, ...]
+    region: str
+    collision_principles: tuple[str, ...]
 
 
 @runtime_checkable

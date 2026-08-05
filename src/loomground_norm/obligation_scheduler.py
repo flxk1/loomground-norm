@@ -1,33 +1,23 @@
 # SPDX-License-Identifier: Apache-2.0
 # Copyright 2026 flxk1
-"""The obligation scheduler — a deterministic, replayable ``tick`` (skeleton).
+"""The obligation scheduler — a deterministic, replayable ``tick``.
 
-Ported from ``server/src/workspaces/obligation_scheduler.py`` in rvnd. The
-source module is real and tested there, but two of its dependencies are
-host-specific in a way this staging pass has not yet inverted:
+Sweeps one folder's open obligations against the calendar and advances each to
+the state its deadline arithmetic warrants (:func:`target_state`), emitting an
+UNGATED :class:`FollowUp` proposal per arrival state. The one host coupling is
+inverted behind a single injected port:
 
-  * ``.action_gate`` — RVND's runtime action-gate (footprint x autonomy grade
-    x standing approvals). The scheduler's proposals ("remind the obligor",
-    "surface a breach candidate") are routed through it before anything
-    fires. That is a genuine N -> G dependency in the source tree: a
-    governance-specific runtime primitive consumed by a general-normative
-    module. The fix is dependency inversion, not a straight copy — this
-    plane should define an ``ActionGate`` protocol (a callable taking an
-    abstract ``FollowUp`` and returning an abstract ``Decision``) in
-    :mod:`.ports`, and RVND's own scheduling glue supplies ``action_gate.gate``
-    as the concrete implementation. Nothing here should import
-    ``ActionRequest``/``GateDecision``/``StandingApproval`` by name.
-  * ``.contracts.instance.ContractRegistry`` — resolves the
+  * :class:`InstrumentSource` — resolves the
     :class:`~loomground_norm.ports.SourceInstrument` a given obligation's
-    deadline is relative to. :mod:`.obligation_runtime` already takes this as
-    an injected instrument per call; the scheduler needs the equivalent for
-    its own per-obligation contract lookup — a small ``InstrumentSource``
-    protocol (``get(ref: str) -> Optional[SourceInstrument]``), not a direct
-    import of RVND's contract registry.
+    deadline is relative to (``get(ref: str) -> Optional[SourceInstrument]``).
+    :mod:`.obligation_runtime` already takes an instrument per call; the
+    scheduler needs the equivalent for its own per-obligation lookup. Without
+    a source, a relative deadline stays unresolved (surfaced, never guessed).
 
-The pure date-arithmetic core (:func:`target_state`) has no such coupling —
-it is real below. The scheduler class itself is a signature-level skeleton:
-wire the two ports above before it runs standalone.
+This plane only PROPOSES. It attaches no verdict, no footprint, and no
+decision to a follow-up — whether an action may fire, and what its disclosure
+footprint is, is a governance concern a downstream consumer classifies on its
+side. ``tick`` and its arithmetic core are fully implemented and tested below.
 """
 
 from __future__ import annotations
@@ -42,7 +32,7 @@ from loomground_solver.temporal import Date, Duration
 
 __all__ = [
     "DEFAULT_WARNING_WINDOW", "target_state", "FollowUp", "SchedulerReport",
-    "ActionGate", "InstrumentSource", "ObligationScheduler",
+    "InstrumentSource", "ObligationScheduler",
 ]
 
 DEFAULT_WARNING_WINDOW = Duration.parse("P14D")
@@ -65,30 +55,34 @@ def target_state(deadline: Date, as_of: Date, window: Duration) -> str:
 _FORWARD = {"pending": 0, "due_soon": 1, "due": 2, "breached_candidate": 3}
 
 # What the scheduler proposes at each arrival state, as an abstract action
-# class + footprint tag — the vocabulary a host's own gate interprets. This
-# plane assigns no verdict to either.
+# class. The plane assigns no verdict and no footprint — a consumer classifies
+# those on its side.
 ACTION_FOR_STATE = {
-    "due_soon": ("remind-obligor", ("external-publish",)),
-    "due": ("remind-obligor", ("external-publish",)),
-    "breached_candidate": ("surface-breach-candidate", ()),
+    "due_soon": "remind-obligor",
+    "due": "remind-obligor",
+    "breached_candidate": "surface-breach-candidate",
 }
+
+# Action classes that address a party (a reminder goes OUT to the obligor);
+# the rest are internal (surfacing a breach candidate concerns no one).
+_ADDRESSED = {"remind-obligor"}
 
 
 @dataclass
 class FollowUp:
-    """One action the scheduler wants to take. Carries no verdict — a host's
-    injected :class:`ActionGate` decides GO/CONDITIONAL/NO-GO; this plane
-    only proposes."""
+    """One action the scheduler proposes — ungated. It carries what (the
+    action class), when (the arrival state), and who is affected. It carries
+    no footprint, no verdict, and no decision: a governance consumer
+    classifies those on its side."""
 
     obligation_id: str
     action_class: str                      # remind-obligor | surface-breach-candidate
     target_state: str
-    footprint: tuple[str, ...] = ()
     affected_parties: tuple[str, ...] = ()
 
     def to_dict(self) -> dict[str, Any]:
         return {"obligation_id": self.obligation_id, "action_class": self.action_class,
-                "target_state": self.target_state, "footprint": self.footprint,
+                "target_state": self.target_state,
                 "affected_parties": self.affected_parties}
 
 
@@ -96,7 +90,7 @@ class FollowUp:
 class SchedulerReport:
     as_of: str
     transitions: list[dict] = field(default_factory=list)
-    proposals: list[dict] = field(default_factory=list)   # {follow_up, decision}
+    proposals: list[dict] = field(default_factory=list)   # ungated FollowUp dicts
     unresolved: list[str] = field(default_factory=list)
     candidates: list[str] = field(default_factory=list)
 
@@ -104,19 +98,6 @@ class SchedulerReport:
         return {"as_of": self.as_of, "transitions": self.transitions,
                 "proposals": self.proposals, "unresolved": self.unresolved,
                 "candidates": self.candidates}
-
-
-@runtime_checkable
-class ActionGate(Protocol):
-    """Injected gate: decide a proposed follow-up. RVND's
-    ``action_gate.gate`` (wrapped to accept a :class:`FollowUp`) satisfies
-    this; the plane ships no default — a scheduler run without one skips
-    gating and returns proposals ungated (visible in the report, never
-    silently applied)."""
-
-    def __call__(self, follow_up: FollowUp) -> dict:
-        """Return a JSON-shaped decision, e.g. ``{"verdict": "go"|"conditional"|"no-go", ...}``."""
-        ...
 
 
 @runtime_checkable
@@ -131,31 +112,25 @@ class InstrumentSource(Protocol):
 class ObligationScheduler:
     """Sweeps one folder's obligations against the calendar.
 
-    The full sweep is ported from rvnd's
-    ``server/src/workspaces/obligation_scheduler.py`` behind two injected
-    ports — no host coupling remains:
+    The full sweep runs behind one injected port — no host coupling remains:
 
-      * :class:`ActionGate` — decides a proposed :class:`FollowUp`. Without
-        one, ``tick`` still runs and records each follow-up ungated
-        (``decision`` is ``None`` in ``report.proposals``), never applying it;
       * :class:`InstrumentSource` — resolves an obligation's contract-ref to a
         :class:`~loomground_norm.ports.SourceInstrument` for relative-deadline
         resolution (``_contract_for``); ``None`` leaves the deadline
         unresolved, surfaced in ``report.unresolved``.
 
-    The jurisdiction-neutral ``deadline_shift`` handling and the
-    weekend/public-holiday caveats are ported verbatim.
+    Every arrival state emits an UNGATED :class:`FollowUp` proposal — the
+    plane proposes but never gates. The jurisdiction-neutral ``deadline_shift``
+    handling and the weekend/public-holiday caveats travel with each transition.
     """
 
     def __init__(self, obligations: ObligationRegistry, *,
                 instruments: Optional[InstrumentSource] = None,
                 warning_window: Duration = DEFAULT_WARNING_WINDOW,
-                action_gate: Optional[ActionGate] = None,
                 deadline_shift: Optional[Callable[[Date], Date]] = None):
         self.obligations = obligations
         self.instruments = instruments
         self.window = warning_window
-        self.action_gate = action_gate
         self.deadline_shift = deadline_shift
 
     def _open(self) -> Iterable[Obligation]:
@@ -181,9 +156,7 @@ class ObligationScheduler:
         law's extension rules may defer it; it APPLIES such a rule only when
         one is configured (``deadline_shift``, supplied by a jurisdiction
         pack). Public holidays are never resolved — the caveat travels with
-        the transition. Ported from rvnd's
-        ``obligation_scheduler.py::ObligationScheduler.tick`` behind the
-        :class:`ActionGate` / :class:`InstrumentSource` ports."""
+        the transition. Runs behind the :class:`InstrumentSource` port."""
         as_of = as_of or Date(_pydate.today().isoformat())
         report = SchedulerReport(as_of=as_of.iso)
         for ob in list(self._open()):
@@ -225,25 +198,20 @@ class ObligationScheduler:
         return report
 
     def _propose(self, report: SchedulerReport, oid: str, state: str) -> None:
-        """Emit one :class:`FollowUp` for an arrival state and, if an
-        :class:`ActionGate` is injected, its verdict. Without a gate the
-        follow-up is recorded ungated (``decision`` is ``None``) — visible in
-        the report, never silently applied."""
-        spec = ACTION_FOR_STATE.get(state)
-        if spec is None:
+        """Emit one UNGATED :class:`FollowUp` for an arrival state — recorded
+        in ``report.proposals`` with no verdict and no decision. A governance
+        consumer classifies footprint/verdict on its side."""
+        action_class = ACTION_FOR_STATE.get(state)
+        if action_class is None:
             return
-        action_class, footprint = spec
         # A reminder going OUT to the obligor names the obligor as the affected
-        # party — the disclosure has an addressee by construction. Surfacing a
+        # party — the action has an addressee by construction. Surfacing a
         # breach candidate is internal (no parties).
         ob = next((o for o in self.obligations.in_state(state)
                    if o.obligation_id == oid), None)
         affected = ((ob.obligor_role or "obligor",)
-                    if "external-publish" in footprint and ob else ())
+                    if action_class in _ADDRESSED and ob else ())
         follow_up = FollowUp(
             obligation_id=oid, action_class=action_class,
-            target_state=state, footprint=tuple(footprint),
-            affected_parties=affected)
-        decision = self.action_gate(follow_up) if self.action_gate else None
-        report.proposals.append({"follow_up": follow_up.to_dict(),
-                                 "decision": decision})
+            target_state=state, affected_parties=affected)
+        report.proposals.append(follow_up.to_dict())
