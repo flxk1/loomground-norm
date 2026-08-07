@@ -21,7 +21,11 @@ authors = [{ name = "Loomground Contributors" }]
 # Hohfeld incidents, the formula carrier); this plane is the reasoning atop
 # it and carries no parallel copy of that language.
 dependencies = [
-    "loomground-solver>=0.1,<0.2",
+    # solver is 0.2.x — every consumed symbol (norm_contract.Level/TemporalError,
+    # temporal.Date/Duration/RelativeDeadline) ships in 0.2.0. Keep this in the 0.2
+    # line: a <0.2 floor excludes the actual solver and makes a shared install with
+    # the other planes (which require solver 0.2.x) unresolvable.
+    "loomground-solver>=0.2,<0.3",
     "loomground-deontic>=0.1,<0.2",
 ]
 
