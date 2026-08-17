@@ -4,16 +4,24 @@
 # revisions only — never a floating branch — so a build can be reproduced.
 #
 # Dependency order (see RELEASING.md): norm sits between the deontic language /
-# the solver and the domains that consume it. It can only resolve + go green
-# once its upstreams are published at the tags below. For LOCAL development
-# with the sibling checkouts present, conftest.py adds their src/ dirs to the
-# path, so `pytest` runs with no pins installed.
+# the solver and the domains that consume it. For LOCAL development with the
+# sibling checkouts present, conftest.py adds their src/ dirs to the path, so
+# `pytest` runs with no pins installed.
 #
-# Pin once verified (fill the immutable revision when each pin is confirmed
-# against the current tree):
-#   loomground-solver  -- last known tag solver-v0.1.1; re-pin at the current release when this repo publishes
-#   loomground-deontic -- last known tag v0.1.0; re-pin at the current release when this repo publishes
-# loomground-solver @ git+https://github.com/flxk1/loomground-solver@<solver tag sha>
-# loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@<deontic tag sha>
+# These are the same revisions loomground-legal pins, so the two planes resolve
+# to one upstream set. Without them `pip install .` looks for loomground-solver
+# on the index, finds nothing, and the job fails before a single test runs.
+#
+# loomground-governance is not a direct dependency of this plane: loomground_solver
+# imports it at module import time and declares it in its own metadata, but it is
+# not on an index — so it has to be named here as a direct git requirement for
+# pip to resolve the solver install at all.
+loomground-governance @ git+https://github.com/flxk1/loomground-governance@9e91cf8d4b8624fbf017b7a96ec53c3ce366d31e
+loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@6fc6df578a35be58924e8d3700fb992b24d68bbb
+# solver-v0.2.1 — the revision RVND pins. Satisfies the >=0.2,<0.3 range in
+# pyproject.toml; every consumed symbol (norm_contract.Level, temporal.Date /
+# Duration / RelativeDeadline / TemporalError, dimensions.Dimension) is present at
+# this revision and the suite passes against it.
+loomground-solver @ git+https://github.com/flxk1/loomground-solver@f8ac006de541215dc82a4cbd5bbd1497a4e658d1
 #
 pytest>=7.0
