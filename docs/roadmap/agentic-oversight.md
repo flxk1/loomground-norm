@@ -80,17 +80,26 @@ domain fact and belongs to a consuming plane.
 
 ---
 
-## N4 · Rule extraction is not the bottleneck, and should not be treated as one
+## N4 · The prerequisite that turned out not to exist
 
-It is tempting to route agentic-oversight work through `rule_extractor`, because
-oversight policies arrive as prose. Two of this plane's modules are marked
-skeleton for a stated reason — `rule_registry` and `obligation_scheduler` still
-carry the seams left by the host-specific code they were extracted from.
+An earlier reading of this slice held that `rule_registry` and
+`obligation_scheduler` were skeletons carrying unfinished host seams, and that
+closing them was prerequisite to N1.
 
-Finishing those seams is worth more to this roadmap than any new extraction
-surface, and it is prerequisite to N1: an obligation runtime without a
-deterministic tick and without a resolved action-gate port cannot carry an
-oversight duty end to end. **N4 sequences before N1.**
+That was wrong, and it came from a stale README rather than from the code. Both
+modules are implemented — span placement, document re-pinning, orphan tracking
+and search in one; deadline arithmetic and per-state follow-up proposals in the
+other — with their host couplings already inverted into injected ports, and
+eighteen tests between them. What the README called "the port it is waiting on"
+is the plane boundary working as designed: `rule_registry` deliberately does not
+anchor norms onto governing instruments (a legal-domain concern), and
+`obligation_scheduler` deliberately only proposes (a governance concern).
+
+**N1 is therefore not blocked.** The genuine weakness on this plane is different
+and narrower: twenty-four tests across nine modules is thin, and it went
+unnoticed because a `conftest` root-resolution bug meant the suite silently
+skipped rather than ran. Coverage is the precondition for trusting anything
+below, and it is not itself a workstream.
 
 ---
 
@@ -98,10 +107,9 @@ oversight duty end to end. **N4 sequences before N1.**
 
 | Step | Item | Notes |
 |---|---|---|
-| 1 | N4 | close the `obligation_scheduler` action-gate port and the `rule_registry` placement seam |
-| 2 | N1 | terminal states separating discharged / waived / elapsed |
-| 3 | N2 | gap count and kind reported as a quantity |
-| 4 | N3 | competence and assistance as declarations through `ports` |
+| 1 | N1 | terminal states separating discharged / waived / elapsed |
+| 2 | N2 | gap count and kind reported as a quantity |
+| 3 | N3 | competence and assistance as declarations through `ports` |
 
 ## Gates
 
