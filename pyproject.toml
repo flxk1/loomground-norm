@@ -21,11 +21,13 @@ authors = [{ name = "Loomground Contributors" }]
 # Hohfeld incidents, the formula carrier); this plane is the reasoning atop
 # it and carries no parallel copy of that language.
 dependencies = [
-    # solver is 0.2.x — every consumed symbol (norm_contract.Level/TemporalError,
-    # temporal.Date/Duration/RelativeDeadline) ships in 0.2.0. Keep this in the 0.2
-    # line: a <0.2 floor excludes the actual solver and makes a shared install with
-    # the other planes (which require solver 0.2.x) unresolvable.
-    "loomground-solver>=0.2,<0.3",
+    # Every consumed symbol (norm_contract.Level/TemporalError,
+    # temporal.Date/Duration/RelativeDeadline) ships in 0.2.0 and is still present
+    # in 0.5.0. The <0.3 cap was there to keep a shared install resolvable while
+    # the family sat on 0.2.x; the family is now moving, so the cap is lifted
+    # rather than raised.
+    # Verified: the full suite (24 tests) passes against solver 0.5.0.
+    "loomground-solver>=0.2,<0.6",
     "loomground-deontic>=0.1,<0.2",
 ]
 
