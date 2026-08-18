@@ -73,24 +73,33 @@ entity/world map builds that on top, it does not become part of this plane.
 | `obligation_runtime` | the obligation state machine — a duty as tracked, dated, gated state, against an injected instrument | real |
 | `subsumption_path` | assembles a multi-hop subsumption chain with its gaps (retrieval/context/reasoning/conflict/authority) surfaced, never smoothed | real |
 | `subsumption_validator` | validates a chain against universal norm theory, plus an optional injected regional jurisdiction pack | real |
-| `rule_registry` | typed, persisted span-norm storage | skeleton — see module docstring for what legal-domain placement is not yet ported |
-| `obligation_scheduler` | the deterministic obligation `tick` | skeleton — see module docstring for the action-gate port it still needs |
+| `rule_registry` | typed, persisted span-norm storage — span placement, document re-pinning, orphan tracking, search; URN minting and audit are injected ports | real |
+| `obligation_scheduler` | the deterministic obligation `tick` — deadline arithmetic and per-state follow-up proposals; instrument resolution is an injected port | real |
 | `ports` | the injected seams (`SourceInstrument`, `AuditSink`, `LegalSystemPack`) | real |
 
-## Why some modules are marked "real" and some "skeleton"
+## Why every module carries an injected port rather than a host import
 
-A handful of the source modules this plane was extracted from mixed general
-deontic-logic work with a direct import of something host-specific: RVND's
-own ingest-classification framework, its legal-entity map, or its runtime
-action-gate. Where that coupling was a single optional call
-(`rule_extractor`'s pre-filter, `subsumption_validator`'s regional layer),
-it has been inverted into an injected port here, and the module is real and
-tested against `loomground_solver` directly. Where untangling it needs more
-design than a staging pass affords (`rule_registry`'s legal-entity
-anchoring, `obligation_scheduler`'s action-gate routing), the module ships as
-a signature-level skeleton with the exact port it is waiting on named in its
-docstring, and its rvnd source file cited as the behavior of record until
-that port lands.
+Several of the source modules this plane was extracted from mixed general
+deontic-logic work with a direct import of something host-specific: an
+ingest-classification framework, a legal-entity map, a runtime action-gate.
+Every one of those couplings has been inverted into a port declared in
+`ports.py` (or, for `rule_registry`, a `urn_minter` callable), so the module
+is exercised against `loomground_solver` and `deontic` alone.
+
+Two of those seams are frequently mistaken for unfinished work, so they are
+worth stating positively:
+
+- `rule_registry` produces spans and rules and deliberately does **not** anchor
+  them onto governing instruments or jurisdictions. Placing a norm onto the
+  entities that govern it is a legal-domain concern owned by a downstream
+  consumer.
+- `obligation_scheduler` only **proposes**. It attaches no verdict, no
+  footprint and no decision to a follow-up; whether an action may fire is a
+  governance concern a consumer classifies on its side.
+
+Neither is a gap. They are the plane boundary working as intended — this plane
+carries no jurisdiction and no AI-oversight vocabulary, and a consumer that
+wants either builds it on top.
 
 ## Development
 
