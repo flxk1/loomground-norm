@@ -9,8 +9,8 @@ so that a fresh local checkout with the siblings present — but not installed �
 can run ``pytest`` with no install dance, sidestepping editable-install
 fragility. For each dependency that fails to import, and only then, its
 ``<family root>/loomground-<name>/src`` directory is prepended to ``sys.path``.
-This checkout lives at ``work/loomground-norm``, so the family root is two
-levels up.
+The siblings are checked out beside this one, so the family root is this
+checkout's parent — the same resolution ``loomground-legal``'s shim uses.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 
 _HERE = Path(__file__).resolve().parent
-_ROOT = _HERE.parent.parent  # work/loomground-norm -> family root
+_ROOT = _HERE.parent  # loomground-norm/.. -> family root (siblings live here)
 
 # This package's own src, so a fresh checkout runs without an install step.
 if importlib.util.find_spec("loomground_norm") is None:
