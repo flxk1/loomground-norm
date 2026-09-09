@@ -18,7 +18,7 @@ import importlib.util
 import sys
 from pathlib import Path
 
-_HERE = Path(__file__).resolve().parent
+_HERE = Path(__file__).resolve().parents[1]  # repo root; this file lives in tests/
 _ROOT = _HERE.parent  # loomground-norm/.. -> family root (siblings live here)
 
 # This package's own src, so a fresh checkout runs without an install step.
