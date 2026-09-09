@@ -15,8 +15,8 @@ license-files = ["LICENSES/Apache-2.0.txt", "NOTICE"]
 authors = [{ name = "Loomground Contributors" }]
 # Abstract dependencies only — a name and range, no URL — so the built
 # distribution stays index-publishable, matching loomground-solver's own
-# dependency on loomground-governance. requirements-dev.txt pins the
-# concrete git tags (solver-v0.1.1, deontic v0.1.0) for development and CI.
+# dependency on loomground-governance. The `dev` extra pins the concrete git
+# revisions for development and CI.
 # loomground-deontic is the deontic language (three operators O/P/F, the
 # Hohfeld incidents, the formula carrier); this plane is the reasoning atop
 # it and carries no parallel copy of that language.
@@ -33,6 +33,17 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
+# Concrete dev/CI resolution of the abstract ranges above: immutable git
+# revisions only, the same set loomground-legal and loomground-norm pin so the
+# planes resolve to one upstream. loomground-governance is not a direct
+# dependency — loomground_solver imports it at module import time and it is on
+# no index, so pip needs the URL to resolve the solver at all.
+dev = [
+    "loomground-governance @ git+https://github.com/flxk1/loomground-governance@9e91cf8d4b8624fbf017b7a96ec53c3ce366d31e",
+    "loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@6fc6df578a35be58924e8d3700fb992b24d68bbb",
+    "loomground-solver @ git+https://github.com/flxk1/loomground-solver@f8ac006de541215dc82a4cbd5bbd1497a4e658d1",
+    "pytest>=7.0",
+]
 
 [project.urls]
 Repository = "https://github.com/flxk1/loomground-norm"
@@ -49,4 +60,5 @@ version = { attr = "loomground_norm._version.__version__" }
 loomground_norm = ["py.typed"]
 
 [tool.pytest.ini_options]
+pythonpath = ["src"]
 testpaths = ["tests"]
