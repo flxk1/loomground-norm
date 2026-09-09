@@ -33,15 +33,8 @@ dependencies = [
 
 [project.optional-dependencies]
 test = ["pytest>=7.0"]
-# Concrete dev/CI resolution of the abstract ranges above: immutable git
-# revisions only, the same set loomground-legal and loomground-norm pin so the
-# planes resolve to one upstream. loomground-governance is not a direct
-# dependency — loomground_solver imports it at module import time and it is on
-# no index, so pip needs the URL to resolve the solver at all.
+# Index-resolvable dev deps only; git-pinned unpublished planes live in requirements-dev.txt.
 dev = [
-    "loomground-governance @ git+https://github.com/flxk1/loomground-governance@9e91cf8d4b8624fbf017b7a96ec53c3ce366d31e",
-    "loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@6fc6df578a35be58924e8d3700fb992b24d68bbb",
-    "loomground-solver @ git+https://github.com/flxk1/loomground-solver@f8ac006de541215dc82a4cbd5bbd1497a4e658d1",
     "pytest>=7.0",
 ]
 
