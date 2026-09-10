@@ -4,7 +4,7 @@ SPDX-PackageSupplier = "Organization: Loomground Contributors"
 
 [[annotations]]
 path = [  "requirements-dev.txt",
-"*.md", "**/*.md", ".gitignore", "NOTICE", "pyproject.toml"]
+"*.md", "llms.txt", "**/*.md", ".gitignore", "NOTICE", "pyproject.toml"]
 precedence = "aggregate"
 SPDX-FileCopyrightText = "2026 flxk1"
 SPDX-License-Identifier = "Apache-2.0"
