@@ -1,0 +1,27 @@
+{
+  "name": "loomground-norm",
+  "version": "0.1.0",
+  "description": "The norm plane's lift: running text to RuleFacet to a rendered deontic formula, in 24 EU languages. The norm skill is the lift card with the modal-phrase table; the loomground MCP server carries norm_extract.",
+  "author": {
+    "name": "Loomground Contributors"
+  },
+  "keywords": [
+    "loomground",
+    "norm",
+    "rule-extraction",
+    "deontic",
+    "multilingual",
+    "legal"
+  ],
+  "skills": "./skills/",
+  "mcpServers": {
+    "loomground": {
+      "command": "loomground-mcp",
+      "args": [
+        "serve",
+        "--transport",
+        "stdio"
+      ]
+    }
+  }
+}
