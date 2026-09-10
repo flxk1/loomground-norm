@@ -60,7 +60,7 @@ Surface phrase → modal class, from the registry (`_MODAL_CLASS_EN`, `_MODAL_CL
 | nl | Dutch | `moet` · `moeten` · `is verplicht` · `zijn verplicht` · `dient` · `dienen` | `mag niet` · `mogen niet` · `is verboden` | `mag` · `mogen` · `kan` · `kunnen` | `heeft het recht` · `hebben het recht` |
 | pt | Portuguese | `deve` · `devem` · `está obrigado a` · `fica obrigado a` | `não pode` · `não deve` · `é proibido` | `pode` · `podem` | `tem direito` · `têm direito` |
 | sv | Swedish | `ska` · `skall` · `är skyldig att` | `får inte` · `ska inte` | `får` · `kan` | `har rätt` · `har rätt att` |
-| da | Danish | `skal` · `er forpligtet til` | `må ikke` · `kan ikke` | `kan` · `må` | `har ret til` † |
+| da | Danish | `skal` · `er forpligtet til` | `må ikke` · `kan ikke` | `kan` · `må` | `har ret til` |
 | pl | Polish | `musi` · `jest zobowiązany` · `ma obowiązek` · `są zobowiązani` | `nie może` · `zakazuje się` · `nie wolno` | `może` · `mogą` | `ma prawo` · `mają prawo` |
 | cs | Czech | `musí` · `je povinen` · `jsou povinni` | `nesmí` · `je zakázáno` | `může` · `mohou` · `smí` | `má právo` · `mají právo` |
 | sk | Slovak | `musí` · `je povinný` · `sú povinní` | `nesmie` · `je zakázané` | `môže` · `môžu` · `smie` | `má právo` · `majú právo` |
@@ -69,15 +69,13 @@ Surface phrase → modal class, from the registry (`_MODAL_CLASS_EN`, `_MODAL_CL
 | hr | Croatian | `mora` · `moraju` · `dužan je` | `ne smije` · `zabranjeno je` | `može` · `mogu` · `smije` | `ima pravo` · `imaju pravo` |
 | el | Greek | `πρέπει` · `υποχρεούται` · `οφείλει` | `δεν επιτρέπεται` · `απαγορεύεται` · `δεν πρέπει` | `μπορεί` · `δύναται` | `έχει δικαίωμα` · `έχουν δικαίωμα` |
 | bg | Bulgarian | `трябва` · `длъжен е` · `е длъжен` | `не може` · `забранява се` · `не трябва` | `може` · `могат` | `има право` · `имат право` |
-| fi | Finnish | `on velvollinen` · `täytyy` · `on velvoitettu` | `ei saa` · `on kielletty` | `voi` · `saa` | `on oikeus` † |
+| fi | Finnish | `on velvollinen` · `täytyy` · `on velvoitettu` | `ei saa` · `on kielletty` | `voi` · `saa` | `on oikeus` |
 | hu | Hungarian | `köteles` · `kell` | `tilos` · `nem szabad` · `nem lehet` | `lehet` | `jogosult` · `joga van` |
-| et | Estonian | `peab` · `on kohustatud` | `ei tohi` · `on keelatud` | `võib` † | `on õigus` † |
-| lt | Lithuanian | `privalo` · `turi` | `negali` · `draudžiama` | `gali` † | `turi teisę` † |
-| lv | Latvian | `ir pienākums` · `nodrošina` | `nedrīkst` · `ir aizliegts` | `var` · `drīkst` | `ir tiesības` † |
+| et | Estonian | `peab` · `on kohustatud` | `ei tohi` · `on keelatud` | `võib` | `on õigus` |
+| lt | Lithuanian | `privalo` · `turi` | `negali` · `draudžiama` | `gali` | `turi teisę` |
+| lv | Latvian | `ir pienākums` · `nodrošina` | `nedrīkst` · `ir aizliegts` | `var` · `drīkst` | `ir tiesības` |
 | ga | Irish | `ní mór` · `déanfaidh` | `ní cheadaítear` · `toirmiscfear` | `féadfaidh` · `féadann` | `tá ceart` · `tá sé de cheart` |
-| mt | Maltese | `għandu` · `huwa obbligat` | `ma jistax` · `huwa pprojbit` | `jista'` · `jistgħu` | `għandu dritt` † |
-
-† In 0.1.0 this entry is written as a bare string in `_GENERIC_SPECS` (a one-element tuple with the comma missing), so the registry holds its characters, one per key; the phrase as written in the source is shown.
+| mt | Maltese | `għandu` · `huwa obbligat` | `ma jistax` · `huwa pprojbit` | `jista'` · `jistgħu` | `għandu dritt` |
 
 ## Not expressible
 
