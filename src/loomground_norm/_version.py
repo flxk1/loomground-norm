@@ -7,4 +7,4 @@ from this attribute, and the package exports it as
 Internal by design: a version constant, not a surface.
 """
 
-__version__ = "0.1.0"  # x-release-please-version
+__version__ = "0.1.1"  # x-release-please-version
