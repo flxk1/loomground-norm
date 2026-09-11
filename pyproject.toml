@@ -28,7 +28,7 @@ dependencies = [
     # rather than raised.
     # Verified: the full suite (24 tests) passes against solver 0.5.0.
     "loomground-solver>=0.2,<0.6",
-    "loomground-deontic>=0.1,<0.2",
+    "loomground-deontic>=0.1,<0.3",
 ]
 
 [project.optional-dependencies]
