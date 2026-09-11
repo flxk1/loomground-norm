@@ -67,7 +67,7 @@ General normative-reasoning plane. Consumes: loomground-deontic (the language), 
 
 ## Status
 
-Version 0.1.0 · 25 tests · loomground-solver >=0.2,<0.6 · loomground-deontic >=0.1,<0.2 · Python >=3.10.
+Version 0.1.0 · 25 tests · loomground-solver >=0.2,<0.6 · loomground-deontic >=0.1,<0.3 · Python >=3.10.
 
 ## License
 
