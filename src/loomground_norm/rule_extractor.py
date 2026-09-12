@@ -22,7 +22,7 @@ The extractor is sentence-segmenting and returns one :class:`RuleFacet`
 per detected rule. Whether a fragment is worth extracting from at all is a
 separate, injectable decision (see ``fingerprint_gate`` on
 :func:`extract_rules`) — a host with its own normative-fingerprint classifier
-(RVND's ND-routing layer, for one) wires it in; this module decides WHAT the
+a host's routing layer wires it in; this module decides WHAT the
 rules are, never WHETHER to look.
 
 EU-wide coverage
@@ -54,7 +54,7 @@ from typing import Any, Callable
 
 #: Injected pre-filter deciding whether content is worth extracting from —
 #: see :func:`extract_rules`. The plane ships no implementation; a host
-#: (RVND's ND-routing normative fingerprint, or any other classifier) wires
+#: A host's normative fingerprint or another classifier wires
 #: its own in.
 FingerprintGate = Callable[[str], bool]
 
@@ -909,8 +909,8 @@ def extract_rules(content: str, *,
         content: text to extract from.
         fingerprint_gate: an optional injected pre-filter — ``gate(content) ->
             bool`` — deciding WHETHER content is worth extracting from at all
-            before this module decides WHAT the rules are. RVND's ND-routing
-            layer wires its own normative-fingerprint classifier in here; the
+            before this module decides WHAT the rules are. A host routing
+            layer may wire its normative-fingerprint classifier in here; the
             plane itself carries no opinion on the gate and runs ungated
             (every candidate sentence considered) when none is supplied.
     """

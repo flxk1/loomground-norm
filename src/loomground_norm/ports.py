@@ -5,8 +5,8 @@
 Mirrors :mod:`loomground_solver.ports`: this plane carries no dated-instrument
 model and no persistence/audit sink of its own; those arrive through the thin
 Protocol ports defined here. A host wires in a concrete :class:`SourceInstrument`
-(whatever dated, party-bearing instrument it tracks obligations against — RVND's
-``contracts.instance.ContractInstance`` is one instance, a compliance
+(whatever dated, party-bearing instrument it tracks obligations against — a
+contract instance is one example, while a compliance
 undertaking or a settlement could be another) and a concrete :class:`AuditSink`
 (its own signed mutation log, or none). :class:`NullAuditSink` is the no-op
 default so the plane runs standalone.
@@ -25,8 +25,8 @@ from loomground_solver.temporal import Date, RelativeDeadline
 class SourceInstrument(Protocol):
     """The dated, party-bearing instrument an obligation is tracked against.
 
-    Structural, not nominal: a host's own instrument class (RVND's
-    ``ContractInstance``, for one) satisfies this by shape — no import edge
+    Structural, not nominal: a host's own instrument class satisfies this by
+    shape — no import edge
     back into the host is required.
     """
 

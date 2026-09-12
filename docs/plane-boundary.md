@@ -57,8 +57,7 @@ through `loomground_norm.ports` (`SourceInstrument`, `AuditSink`,
 `LegalSystemPack`), the same seam discipline `loomground_solver.ports` uses
 for its own hosts.
 
-**Consumed by** RVND's governance server (the AI-oversight application of
-this plane) and, in time, any other normative domain built the same way — a
+**Consumed by** governance servers and normative domains built the same way — a
 contracts pack, a compliance pack, a legal-instrument pack. Governance is one
 application of the normative language, not its owner; a consumer that wants
 jurisdiction-specific citation rules, a curated deliverable catalogue, or an
@@ -118,7 +117,7 @@ their `src/` directories to the path so `pytest` runs from a fresh checkout
 with no install step. Canonical resolution for CI is the git-revision pin set in
 the `dev` extra of `pyproject.toml`. Release mechanics are in `RELEASING.md`.
 
-No import-time dependency on rvnd, versum, or governance from this package.
+No import-time dependency on a host, versum, or governance from this package.
 The `loomground-deontic` entry is this plane's own direct dependency (the
 deontic language). `tests/conftest.py` also puts a `loomground-governance` checkout
 on the path, but that entry is there for `loomground_solver` itself:
