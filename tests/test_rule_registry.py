@@ -10,7 +10,7 @@ per-user mirror:
     idempotent on (document, pinpoint, text), audited through the sink;
   * honest abstention: no urn_minter -> empty canonical_urn;
   * a neutral, configurable store path (no "legal" in it);
-  * a neutral audit-event shape (norm-plane terms, no RVND vocab);
+  * a neutral audit-event shape using norm-plane terms;
   * document re-pinning: surviving spans migrate, vanished spans orphan
     (escalate), never silently dropped;
   * search by modal;
@@ -122,7 +122,7 @@ def test_audit_event_is_neutral(tmp_path):
     reg.place_span("The controller shall notify the authority.",
                    source_document="d", facet=_facet("x"))
     ev = sink.events[0]
-    assert "pair_id" not in ev and "channel" not in ev   # RVND vocab gone
+    assert "pair_id" not in ev and "channel" not in ev   # no host-only fields
     assert "anchors" not in ev.get("extra", {})          # legal surface gone
     assert ev["rule_id"].startswith("rule:")             # neutral norm-plane terms
     assert ev["event"] == "place-span"

@@ -9,7 +9,7 @@ formula carrier are `loomground-deontic`'s — this plane consumes them and
 adds the reasoning on top (extraction, obligation state, subsumption). No
 governance, no legal domain, no jurisdiction — those arrive through the
 injected ports in :mod:`loomground_norm.ports`, or are added by a consumer
-(RVND's AI-oversight layer, a future ``contracts`` or ``legal`` pack). The
+(an AI-oversight layer, a ``contracts`` pack, or a ``legal`` pack). The
 package is imported unchanged by any host, the same discipline
 :mod:`loomground_solver` follows toward :mod:`loomground_governance`.
 

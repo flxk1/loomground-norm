@@ -63,7 +63,7 @@ Module map and plane boundary: `docs/plane-boundary.md`.
 
 ## Family
 
-General normative-reasoning plane. Consumes: loomground-deontic (the language), loomground-solver (verdict vocabulary, temporal types, 5D edges) · consumed by: RVND governance server · pipeline position: applied plane in `source → loomground-ingest → loomground-versum → loomground-solver → applied or diagnostic planes`. Jurisdiction, regulator and corpus facts enter through the ports.
+General normative-reasoning plane. Consumes: loomground-deontic (the language), loomground-solver (verdict vocabulary, temporal types, 5D edges) · consumed by governance and legal-domain hosts · pipeline position: applied plane in `source → loomground-ingest → loomground-versum → loomground-solver → applied or diagnostic planes`. Jurisdiction, regulator and corpus facts enter through the ports.
 
 ## Status
 
