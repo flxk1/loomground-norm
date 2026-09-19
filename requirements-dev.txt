@@ -16,8 +16,8 @@
 # imports it at module import time and declares it in its own metadata, but it is
 # not on an index — so it has to be named here as a direct git requirement for
 # pip to resolve the solver install at all.
-loomground-governance @ git+https://github.com/flxk1/loomground-governance@270e11d0bbded46c810b2fe56559323d6dcd969a
-loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@35f8eabdc533b275a086b20c8d7a161f4acc46a8
+loomground-governance @ git+https://github.com/flxk1/loomground-governance@82c7613e4a2247218a7281dd99933ed7c9e31218
+loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@319e218500da42dea693830ff790343aa340bd60
 # solver-v0.6.0 (the release tag's commit). Satisfies the >=0.2,<0.7 range in
 # pyproject.toml; every consumed symbol (norm_contract.Level, temporal.Date /
 # Duration / RelativeDeadline / TemporalError, dimensions.Dimension) is present at
@@ -25,6 +25,6 @@ loomground-deontic @ git+https://github.com/flxk1/loomground-deontic@35f8eabdc53
 # loomground-governance >=0.8,<0.12 and loomground-deontic >=0.1,<0.3, so the two
 # pins above are the newest release tags inside those ranges
 # (loomground-governance-v0.11.1, loomground-deontic-v0.2.1).
-loomground-solver @ git+https://github.com/flxk1/loomground-solver@5b72f71ebd1f732b4e713b51de15d3ac565faa96
+loomground-solver @ git+https://github.com/flxk1/loomground-solver@2cdf037882e3d867faa7e47e8f6b71a4dee0e38d
 #
 pytest>=7.0
