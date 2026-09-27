@@ -4,6 +4,13 @@ description: 'Lift a sentence of running text into a RuleFacet (subject, modal, 
 allowed-tools: norm_extract
 metadata:
   version: "1.0"
+governance:
+  grade: L1
+  actions:
+    - { kind: lift, risk: low }
+  reserved: []
+  prohibited: []
+  budget: { usd: 1, iters: 10 }
 ---
 
 # loomground-norm — the lift, reference card
