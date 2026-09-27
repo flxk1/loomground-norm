@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.1.2](https://github.com/flxk1/loomground-norm/compare/norm-v0.1.1...norm-v0.1.2) (2026-09-27)
+
+
+### Documentation
+
+* correct stale claims; add How this is made ([0a54ca7](https://github.com/flxk1/loomground-norm/commit/0a54ca7bc9c5955be87569e154b24c1717f8ba00))
+* correct version, pins and dev install; add How this is made ([e44cf51](https://github.com/flxk1/loomground-norm/commit/e44cf517235ff5318c5f4a560630d5d606d9127f))
+* How this is made names no model vendor ([ac76e27](https://github.com/flxk1/loomground-norm/commit/ac76e279bf19cc24157d2280404c8ac1c29bdb9e))
+
 ## [0.1.1](https://github.com/flxk1/loomground-norm/compare/norm-v0.1.0...norm-v0.1.1) (2026-09-11)
 
 
