@@ -41,20 +41,18 @@ tag**: once a release PR merges and the `norm-vX.Y.Z` tag exists, consumers
 depend on this repository with a pinned git revision, e.g.
 
 ```
-loomground-norm @ git+https://github.com/flxk1/loomground-norm@norm-v0.1.0
+loomground-norm @ git+https://github.com/flxk1/loomground-norm@norm-v0.1.1
 ```
 
 placed in the consumer's `requirements-dev.txt` (or equivalent) and installed
-*before* `pip install .`, so the abstract range in `pyproject.toml` is already
-satisfied and pip never needs an index. This is exactly how this repository, in
+*before* `pip install .`, so pip never needs an index. This is exactly how this repository, in
 turn, pins its own upstreams (see `requirements-dev.txt`).
 
 A dormant PyPI publish job ships in `.github/workflows/release-please.yml`,
 gated behind the `PYPI_PUBLISHING` repository variable. There is no PyPI account
 for this project, so it stays disabled; enabling it later would require
-configuring a trusted publisher first. The abstract `>=X,<Y` ranges in
-`pyproject.toml` are compatibility metadata for that possible future, never a
-current install path.
+configuring a trusted publisher first. `pyproject.toml` declares its first-party
+dependencies as direct git references at their release tags.
 
 ## Local verification before tagging
 

@@ -108,14 +108,14 @@ The family is a set of sibling repositories. For local development, check them
 out beside this one and either install the pinned dev set
 
 ```
-python3 -m pip install -e ".[dev]"
+python3 -m pip install -e ".[dev]" -r requirements-dev.txt
 python3 -m pytest
 ```
 
 or, if the sibling packages are present but not installed, `tests/conftest.py` adds
 their `src/` directories to the path so `pytest` runs from a fresh checkout
 with no install step. Canonical resolution for CI is the git-revision pin set in
-the `dev` extra of `pyproject.toml`. Release mechanics are in `RELEASING.md`.
+`requirements-dev.txt`. Release mechanics are in `RELEASING.md`.
 
 No import-time dependency on a host, versum, or governance from this package.
 The `loomground-deontic` entry is this plane's own direct dependency (the
@@ -126,7 +126,7 @@ module import time (grammar/vocabulary), so nothing importing
 `loomground_solver` — this plane included — runs without a governance
 checkout on the path, its own "no governance, no domain/corpus coupling"
 docstring notwithstanding. That is a solver-level fact, not something this
-plane adds; a pinned install (`pip install loomground-solver`) resolves it
+plane adds; a pinned install (`requirements-dev.txt`) resolves it
 as a normal transitive dependency instead of a manual path.
 
 The test suite exercises the plane against a real `loomground_solver`
