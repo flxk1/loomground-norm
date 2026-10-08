@@ -20,8 +20,11 @@ loomground-norm is the lift from running text into the deontic language; the gra
 | `exception` | scoping carve-out, verbatim (`unless`, `except`, `unbeschadet`, `sans préjudice de` …) |
 | `consequence` | the `otherwise …` / `failing which …` branch |
 | `incident` | Hohfeld position of the addressee: `duty` · `privilege` · `power` · `immunity` · `disability`; set by `attach_incidents` |
-| `counterparty` | the correlative role, when named |
+| `counterparty` | the correlative role, when named (English only; read strictly off the rule's own `action`, never off an unrelated clause elsewhere in a long sentence, never a pronoun, never a thing — only a party/institution noun) |
 | `condition_kind` | `suspensive` · `resolutive` · unclassified |
+| `deadline` | every timing cue the sentence attaches to the action ("within 72 hours", "not later than 15 days after …", "without undue delay", "immediately"), joined with `"; "` when more than one fires; "" when none (English only) |
+| `action_verb` | a normalised lemma for the action's own operative verb ("notify", "report", "designate", …), read strictly from the verb position (the action's first token, skipping one bare leading auxiliary) — never from a verb-shaped word read off a later, unrelated clause; "" when the verb is not in the table (English only) |
+| `ensurer` | reserved for a future "Member State(s) shall ensure that X …" bearer distinction; not yet populated, always "" |
 | `addressee_resolved` | `False` for an agentless passive (the subject is the patient) |
 | `language` | ISO 639-1, one of the 24 EU languages; `en` fallback |
 | `confidence` | 1.0 = all five slots populated |
