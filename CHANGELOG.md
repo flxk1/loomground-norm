@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.2.0](https://github.com/flxk1/loomground-norm/compare/norm-v0.1.2...norm-v0.2.0) (2026-10-09)
+
+
+### Features
+
+* **rule_extractor:** add deadline, counterparty, action_verb, ensurer ([7e54100](https://github.com/flxk1/loomground-norm/commit/7e541008221bdaeff7c2b38650f6dc6409cd2f05))
+
 ## [0.1.2](https://github.com/flxk1/loomground-norm/compare/norm-v0.1.1...norm-v0.1.2) (2026-09-27)
 
 
