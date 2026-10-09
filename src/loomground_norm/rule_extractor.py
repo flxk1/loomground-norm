@@ -130,7 +130,29 @@ class RuleFacet:
     established", no "by …" agent): the grammatical :attr:`subject` is the
     PATIENT, not the legal addressee. We do not guess the addressee (that would
     be judging, not transcribing) — we flag it so downstream routes the
-    addressee question to the residual instead of asserting the patient."""
+    addressee question to the residual instead of asserting the patient. The
+    subject is never rewritten to resolve this, in either voice."""
+
+    deadline: str = ""
+    """All timing cues the sentence attaches to the action, joined with
+    "``; ``" when more than one fires in the same sentence: a relative
+    period ("within 72 hours", "not later than 15 days after …", "within
+    one month"), or an urgency cue ("without undue delay", "immediately",
+    "as soon as possible"). "" = no timing cue found. Verbatim text, never
+    computed into a date — that is :mod:`loomground_solver`'s job once a
+    :class:`RelativeDeadline` is wanted."""
+
+    action_verb: str = ""
+    """A normalised lemma for the operative verb ("notify", "report",
+    "designate", "assess", "impose", "cooperate", …) drawn from
+    :data:`_ACTION_VERB_LEMMAS`. "" when the action's verb is not in the
+    table — the verbatim :attr:`action` remains authoritative; this is a
+    classification aid, not a replacement."""
+
+    ensurer: str = ""
+    """Reserved for a future "Member State(s) shall ensure that X …"
+    bearer distinction (the Member State clause arranges a duty, X is who
+    it actually binds). Not yet populated — always ""."""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -858,7 +880,7 @@ _PASSIVE_AUX = {
     # the indicative-obligation pattern reads — both are agentless unless a "by"
     # agent follows. "is required"/"is entitled" stay active: those participles
     # are periphrastic modals (subject is the addressee), not in _GOV_PARTICIPLE.
-    "en": re.compile(r"\bbe(?:en)?\s+\w+(?:ed|en|t|wn|de)\b"
+    "en": re.compile(r"\bbe(?:en)?\s+(?:\w+(?:ed|en|t|wn|de)|done|made)\b"
                      r"|\b(?:is|are|was|were)\s+(?:" + _GOV_PARTICIPLE + r")\b", re.I),
     "de": re.compile(r"\bwird\s+\w+(?:t|en)\b|\bist\s+zu\s+\w+en\b|\bwerden\s+\w+(?:t|en)\b", re.I),
     "fr": re.compile(r"\b(?:est|sont|être)\s+\w+(?:é|ée|és|ées)\b", re.I),
@@ -896,6 +918,383 @@ def _is_agentless_passive(modal_phrase: str, action: str, lang: str) -> bool:
     return True
 
 
+#: Agent-NP promotion ("X shall be done by Y" -> subject Y) was tried and
+#: dropped: the "by …" check above only tells us a passive's agent is
+#: NAMED (so the construction is not agentless); it does not tell us the
+#: match sits inside the MAIN clause rather than an embedded relative
+#: clause ("Member States shall designate a national authority, which
+#: shall be supervised by the Commission" has an agent, but it is the
+#: relative clause's agent, not this rule's). Promoting it rewrote active
+#: sentences' subjects too. :func:`_is_agentless_passive` stays the only
+#: addressee signal — exactly :mod:`a37b0f1`'s behaviour: the grammatical
+#: subject is kept either way, only the ``addressee_resolved`` flag moves.
+
+
+# ---------------------------------------------------------------------------
+# English post-processing: deadline, counterparty, action verb, the
+# "Member States shall ensure that X …" bearer swap, the leading-clause and
+# locative/hedge condition cleanups.
+#
+# These read genuine EU statute drafting conventions (deadline adverbials
+# between modal and verb, "ensure that" delegation, "in the case of …"
+# fronted triggers) and are deliberately gated to English: the generic and
+# German pipelines are untouched, so their existing tests keep their exact
+# behaviour.
+# ---------------------------------------------------------------------------
+
+#: Normalised lemma per surface verb form. "" (not in this table) means the
+#: verbatim :attr:`RuleFacet.action` stays the only record — never guessed.
+_ACTION_VERB_LEMMAS: dict[str, str] = {
+    "notify": "notify", "notifies": "notify", "notified": "notify", "notifying": "notify",
+    "report": "report", "reports": "report", "reported": "report", "reporting": "report",
+    "inform": "inform", "informs": "inform", "informed": "inform", "informing": "inform",
+    "communicate": "inform", "communicates": "inform", "communicated": "inform",
+    "submit": "submit", "submits": "submit", "submitted": "submit", "submitting": "submit",
+    "transmit": "submit", "transmits": "submit", "transmitted": "submit",
+    "forward": "submit", "forwards": "submit", "forwarded": "submit",
+    "designate": "designate", "designates": "designate", "designated": "designate",
+    "appoint": "designate", "appoints": "designate", "appointed": "designate",
+    "ensure": "ensure", "ensures": "ensure", "ensured": "ensure", "ensuring": "ensure",
+    "assess": "assess", "assesses": "assess", "assessed": "assess", "assessing": "assess",
+    "evaluate": "assess", "evaluates": "assess", "evaluated": "assess",
+    "identify": "assess", "identifies": "assess", "identified": "assess",
+    "adopt": "adopt", "adopts": "adopt", "adopted": "adopt",
+    "establish": "establish", "establishes": "establish", "established": "establish",
+    "impose": "impose", "imposes": "impose", "imposed": "impose",
+    "fine": "impose", "fines": "impose",
+    "take": "take measures", "takes": "take measures", "taken": "take measures",
+    "implement": "take measures", "implements": "take measures", "implemented": "take measures",
+    "cooperate": "cooperate", "cooperates": "cooperate", "cooperated": "cooperate",
+    "exchange": "cooperate", "exchanges": "cooperate",
+    "provide": "provide", "provides": "provide", "provided": "provide", "providing": "provide",
+    "make": "make available", "makes": "make available",
+    "publish": "publish", "publishes": "publish", "published": "publish",
+    "keep": "keep records", "keeps": "keep records", "kept": "keep records",
+    "document": "keep records", "documents": "keep records",
+    "register": "register", "registers": "register", "registered": "register",
+    "request": "request", "requests": "request", "requested": "request",
+    "order": "order", "orders": "order", "ordered": "order",
+    "require": "require", "requires": "require", "required": "require",
+    "encourage": "encourage", "encourages": "encourage",
+    "facilitate": "encourage", "facilitates": "encourage",
+    "carry": "carry out", "carries": "carry out", "carried": "carry out",
+    "conduct": "carry out", "conducts": "carry out", "conducted": "carry out",
+    "supervise": "supervise", "supervises": "supervise",
+    "monitor": "supervise", "monitors": "supervise", "monitored": "supervise",
+    "enforce": "enforce", "enforces": "enforce", "enforced": "enforce",
+    "lodge": "lodge complaint", "lodges": "lodge complaint",
+    "investigate": "investigate", "investigates": "investigate", "investigated": "investigate",
+    "refrain": "refrain", "refrains": "refrain",
+    "apply": "apply", "applies": "apply", "applied": "apply",
+    "comply": "comply", "complies": "comply", "complied": "comply",
+    "delete": "delete", "deletes": "delete", "deleted": "delete",
+    "retain": "retain", "retains": "retain", "retained": "retain",
+    "disclose": "disclose", "discloses": "disclose", "disclosed": "disclose",
+    "maintain": "maintain", "maintains": "maintain", "maintained": "maintain",
+    "allocate": "allocate", "allocates": "allocate", "allocated": "allocate",
+    "verify": "verify", "verifies": "verify", "verified": "verify",
+    "respond": "respond", "responds": "respond", "responded": "respond",
+}
+
+#: A bare leading auxiliary (never the operative verb itself) that a passive
+#: or infinitive action may still open with once adverbials are stripped
+#: ("be done …", "to notify …") — skipped once, so the token checked next is
+#: the real verb position, never a noun read off a later, unrelated clause.
+_LEADING_AUX_TOKENS = frozenset({"be", "been", "to", "being"})
+
+
+def _lemmatize_action_verb(action: str) -> str:
+    """The lemma of THIS action's own verb — strictly the first token (after
+    skipping at most one bare leading auxiliary), never a verb-shaped word
+    read off a later, unrelated clause ("…has *established* a causal link…"
+    is NOT this action's verb — "" is the honest answer there)."""
+    tokens = re.findall(r"[A-Za-z]+", action or "")
+    idx = 0
+    if idx < len(tokens) and tokens[idx].lower() in _LEADING_AUX_TOKENS:
+        idx += 1
+    if idx < len(tokens):
+        return _ACTION_VERB_LEMMAS.get(tokens[idx].lower(), "")
+    return ""
+
+
+#: Hedge words: "where applicable" / "where appropriate" / "where feasible" /
+#: "as appropriate" etc. look like a condition to the generic marker scan but
+#: scope the DUTY'S PERFORMANCE, not whether it applies — never a real
+#: applicability condition.
+_HEDGE_WORDS = frozenset({
+    "applicable", "appropriate", "feasible", "relevant", "necessary",
+    "possible", "technically feasible",
+})
+
+#: A time-period count — digits or the spelled-out form EU drafting uses
+#: just as often ("within one month", "within three days").
+_NUM_WORD = (
+    r"(?:\d+|one|two|three|four|five|six|seven|eight|nine|ten"
+    r"|eleven|twelve)")
+
+#: One adverbial/timing unit: a relative deadline, an urgency cue, or a hedge.
+#: Shared between the leading-adverbial strip (which pulls these out of the
+#: action so the real verb surfaces) and the deadline collector (which reads
+#: the same vocabulary out of the full sentence).
+_ADV_UNIT_RE = re.compile(
+    r"without\s+undue\s+delay"
+    r"|immediately"
+    r"|as\s+soon\s+as\s+possible"
+    r"|in\s+any\s+event"
+    r"|(?:not\s+later\s+than|no\s+later\s+than|within)\s+" + _NUM_WORD + r"\s*"
+    r"(?:hours?|days?|weeks?|months?|years?)"
+    r"(?:\s+(?:after|of|from)\s+[a-z][^,.;]{1,80})?"
+    r"|where\s+(?:" + "|".join(sorted(_HEDGE_WORDS, key=len, reverse=True)) + r")"
+    r"|as\s+(?:" + "|".join(w for w in sorted(_HEDGE_WORDS, key=len, reverse=True)
+                             if " " not in w) + r")",
+    re.IGNORECASE,
+)
+
+#: Deadline-only subset of :data:`_ADV_UNIT_RE` (timing cues, not hedges) —
+#: used to decide whether a matched adverbial unit is worth recording in
+#: :attr:`RuleFacet.deadline`.
+_DEADLINE_ONLY_RE = re.compile(
+    r"without\s+undue\s+delay"
+    r"|immediately"
+    r"|as\s+soon\s+as\s+possible"
+    r"|(?:not\s+later\s+than|no\s+later\s+than|within)\s+" + _NUM_WORD + r"\s*"
+    r"(?:hours?|days?|weeks?|months?|years?)"
+    r"(?:\s+(?:after|of|from)\s+[a-z][^,.;]{1,80})?",
+    re.IGNORECASE,
+)
+
+#: A leading/embedded adverbial clause, delimited by a comma (or the start of
+#: the string) on one side and a comma (or the end of the string) on the
+#: other — "shall *without undue delay and, where feasible, not later than
+#: 72 hours after …,* notify" pulls three such units out in sequence, each
+#: time exposing the next, until "notify" leads.
+_ADV_CLAUSE_RE = re.compile(
+    r"(?P<pre>^|,)\s*(?:and\s+|or\s+)?(?P<adv>" + _ADV_UNIT_RE.pattern + r")"
+    r"(?:\s+(?:and|or))?\s*(?P<post>,|$)",
+    re.IGNORECASE,
+)
+
+
+def _strip_adverbials(action: str, deadlines: list[str]) -> str:
+    """Pull every leading/embedded timing-or-hedge clause out of ``action``,
+    recording the timing ones (verbatim) into ``deadlines`` (de-duplicated,
+    order preserved) so the operative verb is what is left in ``action``.
+
+    This is what fixes "shall without undue delay and, where feasible, not
+    later than 72 hours …, notify …" landing action="without undue delay
+    and" — the boundary-trim that used to run first saw the embedded
+    "where" and cut there before this pass could expose "notify".
+    """
+    guard = 0
+    while guard < 12:
+        guard += 1
+        m = _ADV_CLAUSE_RE.search(action)
+        if not m:
+            break
+        adv = m.group("adv")
+        dm = _DEADLINE_ONLY_RE.fullmatch(adv)
+        if dm and adv.lower() not in (d.lower() for d in deadlines):
+            deadlines.append(adv)
+        action = action[:m.start()] + " " + action[m.end():]
+        action = re.sub(r",\s*,", ",", action)
+        action = re.sub(r"^\s*,\s*", "", action)
+        action = re.sub(r",\s*$", "", action)
+        action = re.sub(r"\s{2,}", " ", action).strip()
+    return action
+
+
+def _collect_deadlines(sentence: str, existing: list[str]) -> None:
+    """Scan the full sentence for timing cues :func:`_strip_adverbials`
+    did not see (outside the action span), appending any not already
+    recorded — "immediately … and, in any event, not later than 15 days
+    …" (AI Act Art. 73(2)) needs both halves, not just the first match."""
+    for m in _DEADLINE_ONLY_RE.finditer(sentence):
+        frag = m.group(0)
+        if frag.lower() not in (d.lower() for d in existing):
+            existing.append(frag)
+
+
+#: Verbs that name a recipient — the counterparty of a notify/report/inform
+#: duty. Longest-first so "transmit" never shadows a longer surface form.
+_COUNTERPARTY_VERBS = (
+    r"notify|notifies|notifying|notified"
+    r"|report|reports|reported|reporting"
+    r"|inform|informs|informing"
+    # "informed" alone is ambiguous with the adjective ("an *informed*
+    # decision/consent/choice") — only read as the verb outside that idiom.
+    r"|informed(?!\s+(?:decision|decisions|consent|choice|choices))"
+    r"|submit|submits|submitted|submitting"
+    r"|communicate|communicates|communicated|communicating"
+    r"|transmit|transmits|transmitted|transmitting"
+    r"|forward|forwards|forwarded|forwarding"
+    r"|disclose|discloses|disclosed|disclosing"
+    r"|made\s+available|make\s+available|makes\s+available|making\s+available"
+)
+
+#: Words that must NEVER be swallowed as a leading "modifier" of the
+#: recipient NP — the communicative/duty verbs themselves, so "to *notify*
+#: the authority" never reads as cp="notify the authority", and the common
+#: infinitive-purpose verbs ("to *ensure* compliance") never get a chance to
+#: be mistaken for the start of an NP either.
+_COUNTERPARTY_NP_VERB_DENYLIST = (
+    _COUNTERPARTY_VERBS +
+    r"|ensure|ensures|ensured|ensuring"
+    r"|respond|responds|responded|responding"
+    r"|verify|verifies|verified|verifying"
+    r"|request|requests|requested|requesting"
+    r"|provide|provides|provided|providing"
+    r"|take|takes|taken|taking|comply|complies|complied"
+    r"|apply|applies|applied"
+)
+
+#: A party/institution noun — the only acceptable HEAD of a recipient NP.
+#: Closed, deliberately: a recipient must be a party, never a thing ("the
+#: system", "the use", "third countries", "compliance") and never a bare
+#: pronoun ("it", "whom").
+_PARTY_HEAD_NOUNS_RE_FRAGMENT = (
+    r"member\s+states?|authorities|authority|csirts?|commission"
+    r"|boards?|offices?|coordinators?|controllers?|providers?|deployers?"
+    r"|recipients?|users?|subjects?|persons?|enisa|teams?"
+    # "notified body/bodies" is a compound head in its own right — matched
+    # whole so "notified" (also a verb-denylist form) never has to pass as
+    # a bare modifier word to reach the "body" head.
+    r"|notified\s+bod(?:y|ies)|bodies|body"
+    r"|entities|entity|processors?|regulators?"
+)
+
+#: "notify/report/… [stuff] to (the/its/their/a/an) <0-2 non-verb modifier
+#: words><party-noun head>" — attached to a communicative verb earlier in
+#: the clause, the NP's head restricted to a party/institution noun (never a
+#: thing, never a pronoun), and no verb (communicative or infinitive-purpose)
+#: allowed inside the NP itself — this is what rejects "to ensure
+#: compliance", "to the system", "to third countries", "to it", "to whom".
+_COUNTERPARTY_TO_RE = re.compile(
+    r"\b(?:" + _COUNTERPARTY_VERBS + r")\b[^.;]{0,160}?\bto\s+"
+    r"(?:the\s+|its\s+|their\s+|a\s+|an\s+)?"
+    r"(?P<cp>(?:(?!(?:" + _COUNTERPARTY_NP_VERB_DENYLIST + r")\b)"
+    r"[a-z][\w\-]*\s+){0,2}"
+    r"(?:" + _PARTY_HEAD_NOUNS_RE_FRAGMENT + r"))\b",
+    re.IGNORECASE,
+)
+
+#: Known institutional recipient nouns — used for the no-"to" direct-object
+#: form ("notify its CSIRT", "notify the authority of any changes"). Same
+#: closed party/institution list as the "to" form, plus the compound
+#: institutional phrases that read as a single head for this fixed-verb form.
+_ROLE_NOUNS = (
+    "csirt", "csirts", "supervisory authority", "competent authority",
+    "authority", "authorities", "board", "commission", "controller",
+    "controllers", "processor", "processors", "provider", "providers",
+    "deployer", "deployers", "data protection officer", "dpo",
+    "single point of contact", "coordinator", "regulator", "enisa",
+    "member state", "member states", "data subject", "data subjects",
+    "recipient", "recipients", "user", "users", "subject", "subjects",
+    "person", "persons", "team", "teams", "body", "bodies",
+    "entity", "entities",
+    "market surveillance authority", "market surveillance authorities",
+    "notified body", "notified bodies",
+)
+_COUNTERPARTY_DIRECT_RE = re.compile(
+    r"\b(?:notify|notifies|notified|notifying"
+    r"|report|reports|reported|reporting"
+    r"|inform|informs|informed|informing)\b\s+(?:its|their|the)\s+"
+    r"(?P<cp>" + "|".join(sorted(_ROLE_NOUNS, key=len, reverse=True)) + r")\b",
+    re.IGNORECASE,
+)
+
+#: Never a resolution on their own — a pronoun names no party.
+_COUNTERPARTY_PRONOUN_STOPLIST = frozenset({
+    "it", "them", "whom", "who", "this", "that", "these", "those",
+})
+
+
+def _extract_counterparty_en(action: str, raw: str) -> str:
+    """The recipient named by a notify/report/inform/submit/… duty.
+
+    Read ONLY off ``action`` — THIS rule's own operative text — never off
+    the full ``raw`` sentence: a long enumerated EU provision is frequently
+    one giant un-split "sentence" (no full stop between sub-clauses), and a
+    completely unrelated clause fifty words later can name a recipient of
+    ITS OWN notify duty, not this rule's. ``raw`` is accepted as a
+    parameter for call-site stability but no longer searched; kept so a
+    future, more surgical use (e.g. a bounded window around the action's
+    own span) can be added without another signature change.
+
+    "to …" form first (a party/institution-noun-headed NP, marked by the
+    preposition), then the no-preposition direct-object form (bounded to
+    the same party/institution noun list — "notify its CSIRT", "notify the
+    authority of any changes"). "" when neither fires — never guessed,
+    never a pronoun, never the thing being reported instead of who it is
+    reported to.
+    """
+    del raw  # intentionally unused — see docstring
+    m = _COUNTERPARTY_TO_RE.search(action or "")
+    if m:
+        cp = m.group("cp").strip()
+        if cp.lower() not in _COUNTERPARTY_PRONOUN_STOPLIST:
+            return cp
+    m = _COUNTERPARTY_DIRECT_RE.search(action or "")
+    if m:
+        return m.group("cp").strip()
+    return ""
+
+
+#: Fronted trigger clauses that land IN the subject capture because the
+#: bespoke subject char-class is deliberately permissive ("In the case of a
+#: personal data breach, the controller shall …" — the whole clause up to
+#: the modal is the lazy subject match). Moves the trigger into
+#: :attr:`RuleFacet.condition` (if not already populated) and leaves the
+#: real bearer as the subject.
+_LEADING_CLAUSE_RE = re.compile(
+    r"^(?:in\s+the\s+case\s+of|in\s+the\s+event\s+of|where|if|when|upon|once"
+    r"|after\s+becoming\s+aware\s+(?:of|that)"
+    r"|in\s+deciding)\s+"
+    r"(?P<trigger>[^,]+),\s*(?P<rest>.+)$",
+    re.IGNORECASE,
+)
+
+
+def _split_leading_clause(subject: str) -> tuple[str, str]:
+    """``(real_subject, trigger)`` — ``trigger`` is "" when ``subject`` has
+    no fronted clause to strip."""
+    m = _LEADING_CLAUSE_RE.match(subject)
+    if not m:
+        return subject, ""
+    return m.group("rest").strip(), m.group("trigger").strip()
+
+
+def _extract_condition_en(sentence: str) -> str:
+    """The real applicability trigger, never a hedge or a locative relative
+    clause.
+
+    Scans every ``condition_markers`` hit in the sentence (not just the
+    first) and skips two kinds of false positive:
+      * a hedge ("where applicable", "where appropriate", "where feasible")
+        — scopes performance, not applicability;
+      * a locative "where" attached to a preceding noun ("… in one of the
+        Member States *where* the provider offers its services") — a
+        relative clause describing the noun, not a sentence-level trigger.
+        The tell: a genuine trigger's "where"/"if"/… is clause-initial (the
+        sentence start, or right after a comma); a locative one is not.
+    """
+    prof = _PROFILES["en"]
+    if prof.condition_pattern is None:
+        return ""
+    for m in prof.condition_pattern.finditer(sentence):
+        cand = m.group("cond").strip()
+        low = cand.rstrip(" .,;:").lower()
+        if low in _HEDGE_WORDS:
+            continue
+        marker_text = sentence[m.start():m.end() - len(m.group("cond"))].strip().lower()
+        if marker_text == "where":
+            preceding = sentence[:m.start()].rstrip()
+            is_clause_boundary = preceding == "" or preceding[-1] in ",;:"
+            if not is_clause_boundary:
+                continue  # locative relative clause, not a trigger
+        return cand
+    return ""
+
+
 def extract_rules(content: str, *,
                   fingerprint_gate: "FingerprintGate | None" = None) -> list[RuleFacet]:
     """Extract structured rules from normative content (EU-wide).
@@ -925,89 +1324,159 @@ def extract_rules(content: str, *,
             continue
         lang = _detect_language(sentence)
         prof = _PROFILES.get(lang) or _PROFILES["en"]
+
+        ensurer = ""
+        leading_trigger = ""
+        # Try every bespoke/generic pattern in order (not just the first
+        # that matches at all): a pattern whose subject/modal came back
+        # empty, whose subject head is a pronoun, or whose subject is
+        # STILL headed by a pronoun once a fronted trigger clause is split
+        # off ("Where the processor engages another processor, it shall
+        # …" -> subject "it") is rejected and the NEXT pattern is tried —
+        # never the whole sentence abandoned on the first pattern's
+        # failure.
+        matched = None
         for pat in prof.rule_patterns:
             m = pat.search(sentence)
             if not m:
                 continue
             groups = m.groupdict()
-            subject = (groups.get("subject") or "").strip()
-            modal_phrase = (groups.get("modal") or "").strip()
-            action = (groups.get("action") or "").strip()
-            consequence = (groups.get("consequence") or "").strip()
-            if consequence:
-                action = f"{action} → {consequence}".strip(" →")
-            if not (subject and modal_phrase):
+            cand_subject = (groups.get("subject") or "").strip()
+            cand_modal = (groups.get("modal") or "").strip()
+            cand_action = (groups.get("action") or "").strip()
+            cand_consequence = (groups.get("consequence") or "").strip()
+            if cand_consequence:
+                cand_action = f"{cand_action} → {cand_consequence}".strip(" →")
+            if not (cand_subject and cand_modal):
                 continue
-            head = subject.lower().split()[0] if subject else ""
-            if head in prof.pronoun_stoplist:
+            cand_head = cand_subject.lower().split()[0] if cand_subject else ""
+            if cand_head in prof.pronoun_stoplist:
                 continue
-            modal_class = _classify_modal(modal_phrase, lang)
-            # Discontinuous negation (Germanic separable verbs: "mag … niet",
-            # "darf … nicht"): a permission modal with a trailing negator in
-            # the action is a prohibition.
-            if (modal_class == "permission" and prof.negator_re is not None
-                    and prof.negator_re.search(action)):
+            cand_trigger = ""
+            # Only split a fronted clause off a subject that actually
+            # STARTS the sentence (m.start("subject") == 0). A subject
+            # capture that starts mid-sentence — the 120-char
+            # anti-backtracking cap on the long bespoke patterns forces
+            # this on a long compound NP — is not a fronted clause even
+            # when it happens to open with one of the lead-in words;
+            # splitting it there would drop real subject text.
+            if lang == "en" and m.start("subject") == 0:
+                split_subject, cand_trigger = _split_leading_clause(cand_subject)
+                post_head = split_subject.lower().split()[0] if split_subject else ""
+                if post_head in prof.pronoun_stoplist:
+                    continue
+                cand_subject = split_subject
+            matched = (cand_subject, cand_modal, cand_action, cand_trigger)
+            break
+        if matched is None:
+            continue
+        subject, modal_phrase, action, leading_trigger = matched
+        modal_class = _classify_modal(modal_phrase, lang)
+        # Discontinuous negation (Germanic separable verbs: "mag … niet",
+        # "darf … nicht"): a permission modal with a trailing negator in
+        # the action is a prohibition.
+        if (modal_class == "permission" and prof.negator_re is not None
+                and prof.negator_re.search(action)):
+            modal_class = "prohibition"
+        # Leading-negation flip (English): "must never deploy" / a bare-modal
+        # sentence whose action opens with a negator is a prohibition — the
+        # negation binds the modal. The negator is stripped so the operative
+        # verb leads the action; the surface phrase records the negation.
+        if lang == "en" and modal_class in ("obligation", "permission"):
+            nm = _LEADING_NEG_EN.match(action)
+            if nm:
                 modal_class = "prohibition"
-            # Leading-negation flip (English): "must never deploy" / a bare-modal
-            # sentence whose action opens with a negator is a prohibition — the
-            # negation binds the modal. The negator is stripped so the operative
-            # verb leads the action; the surface phrase records the negation.
-            if lang == "en" and modal_class in ("obligation", "permission"):
-                nm = _LEADING_NEG_EN.match(action)
-                if nm:
-                    modal_class = "prohibition"
-                    modal_phrase = f"{modal_phrase} {nm.group(0).strip()}".strip()
-                    action = action[nm.end():].strip()
-            condition = exception = ""
-            if prof.condition_pattern:
-                cm = prof.condition_pattern.search(sentence)
-                condition = cm.group("cond").strip() if cm else ""
-            if prof.exception_pattern:
-                em = prof.exception_pattern.search(sentence)
-                exception = em.group("exc").strip() if em else ""
-            # The action must not swallow a trailing condition/exception clause
-            # ("establish X, unless Y" → action "establish X", exception "Y").
-            # Trim the action at the first condition/exception marker.
-            _boundary = _marker_regex(prof.condition_markers + prof.exception_markers)
-            if _boundary is not None:
-                bm = _boundary.search(action)
-                if bm and bm.start() > 0:
-                    action = action[:bm.start()].rstrip(" ,;–-")
+                modal_phrase = f"{modal_phrase} {nm.group(0).strip()}".strip()
+                action = action[nm.end():].strip()
 
-            # Compound rule: an "otherwise …" / "failing which …" / "or else …"
-            # branch names the fallback if the requirement is not met. The action
-            # group stopped at ";", so capture that branch verbatim rather than
-            # dropping it (dropping it is what lets a downstream drafter guess).
-            consequence = ""
-            cq = _OTHERWISE_RE.search(sentence)
-            if cq:
-                consequence = cq.group("conseq").strip().rstrip(" .;,")
+        deadlines: list[str] = []
+        if lang == "en":
+            # Pull leading/embedded timing-and-hedge clauses out of the action
+            # BEFORE the condition/exception boundary trim runs, so an
+            # embedded hedge ("… and, where feasible, not later than 72
+            # hours …, notify …") cannot be mistaken for the boundary and cut
+            # the action down to the adverbial alone.
+            action = _strip_adverbials(action, deadlines)
 
-            populated = sum(1 for x in (subject, modal_phrase, action) if x)
-            extras = sum(1 for x in (condition, exception) if x)
-            confidence = 0.6 + 0.1 * (populated - 2) + 0.1 * extras
-            confidence = max(0.4, min(1.0, confidence))
+        condition = exception = ""
+        if lang == "en":
+            condition = _extract_condition_en(sentence)
+        elif prof.condition_pattern:
+            cm = prof.condition_pattern.search(sentence)
+            condition = cm.group("cond").strip() if cm else ""
+        if leading_trigger and not condition:
+            condition = leading_trigger
+        if prof.exception_pattern:
+            em = prof.exception_pattern.search(sentence)
+            exception = em.group("exc").strip() if em else ""
+        # The action must not swallow a trailing condition/exception clause
+        # ("establish X, unless Y" → action "establish X", exception "Y").
+        # Trim the action at the first remaining condition/exception marker
+        # (the English hedge/deadline markers are already gone by this point).
+        _boundary = _marker_regex(prof.condition_markers + prof.exception_markers)
+        if _boundary is not None:
+            bm = _boundary.search(action)
+            if bm and bm.start() > 0:
+                action = action[:bm.start()].rstrip(" ,;–-")
+        # The MS-ensure rewrite reads its action straight out of the raw
+        # sentence tail, which (unlike the regular pattern's action group)
+        # includes the closing full stop — strip it, here, universally.
+        action = action.rstrip(" .;")
 
-            # Agentless-passive addressee check: "X shall be established" with no
-            # "by <agent>" means subject is the patient, not the addressee. Flag
-            # it and shave confidence rather than asserting a wrong addressee.
-            addressee_resolved = not _is_agentless_passive(
-                modal_phrase, action, lang)
-            if not addressee_resolved:
-                confidence = max(0.4, confidence - 0.1)
+        # Compound rule: an "otherwise …" / "failing which …" / "or else …"
+        # branch names the fallback if the requirement is not met. The action
+        # group stopped at ";", so capture that branch verbatim rather than
+        # dropping it (dropping it is what lets a downstream drafter guess).
+        consequence = ""
+        cq = _OTHERWISE_RE.search(sentence)
+        if cq:
+            consequence = cq.group("conseq").strip().rstrip(" .;,")
 
-            rules.append(RuleFacet(
-                subject=subject.lower(),
-                modal=modal_class,
-                modal_phrase=modal_phrase,
-                action=action,
-                condition=condition,
-                exception=exception,
-                consequence=consequence,
-                raw_sentence=sentence,
-                language=lang,
-                confidence=confidence,
-                addressee_resolved=addressee_resolved,
-            ))
-            break  # one rule per sentence
+        deadline = ""
+        counterparty = ""
+        action_verb = ""
+        if lang == "en":
+            _collect_deadlines(sentence, deadlines)
+            deadline = "; ".join(deadlines)
+            counterparty = _extract_counterparty_en(action, sentence)
+            action_verb = _lemmatize_action_verb(action)
+
+        populated = sum(1 for x in (subject, modal_phrase, action) if x)
+        extras = sum(1 for x in (condition, exception) if x)
+        confidence = 0.6 + 0.1 * (populated - 2) + 0.1 * extras
+        confidence = max(0.4, min(1.0, confidence))
+
+        # Agentless-passive addressee check: "X shall be established" with no
+        # "by <agent>" means subject is the patient, not the addressee. Flag
+        # it and shave confidence rather than asserting a wrong addressee.
+        # The subject is never rewritten here — a "by <agent>" phrase only
+        # tells :func:`_is_agentless_passive` the agent is NAMED (so this
+        # isn't an abstention case); it does not say the match belongs to
+        # the main clause rather than an embedded relative clause ("…a
+        # national authority, which shall be supervised by the
+        # Commission"), so it is never promoted to the subject. No
+        # cross-sentence carry-forward either. Byte-identical to main's
+        # behaviour on this.
+        addressee_resolved = not _is_agentless_passive(
+            modal_phrase, action, lang)
+        if not addressee_resolved:
+            confidence = max(0.4, confidence - 0.1)
+
+        rules.append(RuleFacet(
+            subject=subject.lower(),
+            modal=modal_class,
+            modal_phrase=modal_phrase,
+            action=action,
+            condition=condition,
+            exception=exception,
+            consequence=consequence,
+            raw_sentence=sentence,
+            language=lang,
+            confidence=confidence,
+            addressee_resolved=addressee_resolved,
+            deadline=deadline,
+            counterparty=counterparty,
+            action_verb=action_verb,
+            ensurer=ensurer,
+        ))
     return rules

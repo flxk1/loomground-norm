@@ -45,6 +45,7 @@ def formula_from_rule(rule: RuleFacet) -> DeonticFormula:
         exception=rule.exception,
         incident=getattr(rule, "incident", "") or "",
         counterparty=getattr(rule, "counterparty", "") or "",
+        deadline=getattr(rule, "deadline", "") or "",
         language=rule.language,
         raw_sentence=rule.raw_sentence,
         confidence=rule.confidence,
